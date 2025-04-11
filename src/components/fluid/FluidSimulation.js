@@ -374,21 +374,33 @@ if (!baseVertexShader) {
 
     // --- Initialize Programs and Materials ---
     // Use Program for shaders without keywords, Material for shaders with keywords
-    this.copyProgram = new Program(gl, baseVertexShader, copyShaderSource);
-    this.clearProgram = new Program(gl, baseVertexShader, clearShaderSource);
-    this.splatProgram = new Program(gl, baseVertexShader, splatShaderSource);
-    this.advectionProgram = new Program(gl, baseVertexShader, advectionShaderSource); // Needs MANUAL_FILTERING keyword potentially
-    this.divergenceProgram = new Program(gl, baseVertexShader, divergenceShaderSource);
-    this.curlProgram = new Program(gl, baseVertexShader, curlShaderSource);
-    this.vorticityProgram = new Program(gl, baseVertexShader, vorticityShaderSource);
-    this.pressureProgram = new Program(gl, baseVertexShader, pressureShaderSource);
-    this.gradienSubtractProgram = new Program(gl, baseVertexShader, gradientSubtractShaderSource); // Renamed variable
+this.copyProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, copyShaderSource));
+this.clearProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, clearShaderSource));
+this.splatProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, splatShaderSource));
+this.advectionProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, advectionShaderSource));
+this.divergenceProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, divergenceShaderSource));
+this.curlProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, curlShaderSource));
+this.vorticityProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, vorticityShaderSource));
+this.pressureProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, pressureShaderSource));
+this.gradienSubtractProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, gradientSubtractShaderSource));
 
     // Display uses Material because it has the SHADING keyword option
     this.displayMaterial = new Material(gl, baseVertexShader, displayShaderSource);
 
     // Check if any program failed to initialize
-    if (!this.copyProgram.program || !this.clearProgram.program || !this.splatProgram.program ||
+    console.log("Checking shader program initialization status:", {
+  copyProgram: !!this.copyProgram.program,
+  clearProgram: !!this.clearProgram.program,
+  splatProgram: !!this.splatProgram.program,
+  advectionProgram: !!this.advectionProgram.program,
+  divergenceProgram: !!this.divergenceProgram.program,
+  curlProgram: !!this.curlProgram.program,
+  vorticityProgram: !!this.vorticityProgram.program,
+  pressureProgram: !!this.pressureProgram.program,
+  gradientSubtractProgram: !!this.gradienSubtractProgram.program
+});
+
+if (!this.copyProgram.program || !this.clearProgram.program || !this.splatProgram.program ||
         !this.advectionProgram.program || !this.divergenceProgram.program || !this.curlProgram.program ||
         !this.vorticityProgram.program || !this.pressureProgram.program || !this.gradienSubtractProgram.program) {
         this.dispose(); // Clean up partially created resources
@@ -461,6 +473,7 @@ if (!baseVertexShader) {
         this.updateKeywords(); // Set initial keywords for materials
     } catch (error) {
         console.error("Error during initialization:", error);
+console.trace("Stack trace for initialization error:");
         this.dispose(); // Clean up resources if initialization fails
         throw error; // Re-throw the error
     }

@@ -374,6 +374,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
 
     // --- Cleanup ---
     return () => {
+  console.log("Fluid component cleanup triggered by React.");
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
@@ -395,7 +396,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       // Clean up pointers array? Maybe remove inactive pointers
       pointers.current = pointers.current.filter(p => p.id === -1); // Keep only the default placeholder
     };
-  }, [config, update]); // Re-run effect if config changes
+  }, [config]); // Removed 'update' from dependencies to prevent unnecessary re-initializations
 
   return <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: 'block', ...style }} />;
 });

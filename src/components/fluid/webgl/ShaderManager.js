@@ -32,6 +32,11 @@ const compileShader = (gl, type, source, keywords) => {
   }
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
+
+  // Explicitly log shader object type after compilation
+  if (!(shader instanceof WebGLShader)) {
+    console.error("Shader is not an instance of WebGLShader after compilation:", shader);
+  }
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     console.error(`Shader compilation error: ${gl.getShaderInfoLog(shader)}\nShader source:\n${source}`);
     console.trace("Shader source:\n", source); // Log the source for debugging
