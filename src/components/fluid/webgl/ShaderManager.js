@@ -33,7 +33,7 @@ const compileShader = (gl, type, source, keywords) => {
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error(`Shader compilation error: ${gl.getShaderInfoLog(shader)}`);
+    console.error(`Shader compilation error: ${gl.getShaderInfoLog(shader)}\nShader source:\n${source}`);
     console.trace("Shader source:\n", source); // Log the source for debugging
     gl.deleteShader(shader); // Clean up shader on failure
     return null;
