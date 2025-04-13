@@ -1,22 +1,34 @@
 # Active Context: Fluid NextJS
 
 ## Current Work Focus
-- Developing and refining core WebGL fluid simulation components.
-- Integrating fluid simulation into Next.js frontend components.
+- Debugging an issue where fluid simulation splats aren't showing up on the screen.
+- Investigating WebGL rendering and event handling in the fluid simulation.
 - Optimizing performance and responsiveness of the simulation.
 
 ## Recent Changes
-- Initial setup of Next.js project structure and WebGL integration.
-- Implementation of foundational WebGL context management and shader management.
-- Creation of initial fluid simulation logic and basic rendering pipeline.
+- Removed the test splat that was filling the screen with red.
+- Added direct click handler to ensure clicks are captured.
+- Improved event handling with debug logging.
+- Adjusted splat radius, force, and dissipation settings for better visibility.
+- Modified the radius calculation in utils.js for more balanced splats.
+
+## Current Bug Investigation
+- The WebGL context is initializing correctly.
+- Shaders are compiling successfully.
+- Event handlers are receiving pointer events (particularly pointer up).
+- The dye texture is being rendered correctly.
+- However, splats are not appearing on the screen when interacting with the canvas.
 
 ## Next Steps
-- Enhance fluid simulation realism and visual fidelity.
-- Improve performance through optimization of WebGL shaders and framebuffers.
-- Develop interactive controls and user interface elements for the simulation.
-- Conduct cross-browser testing and ensure responsive design.
+- Debug why splats aren't showing up despite events being captured.
+- Investigate the splat rendering pipeline in FluidSimulation.js.
+- Check if there are issues with the display shader or blending settings.
+- Verify that the splat color and radius settings are appropriate.
+- Consider adding more debug logging to trace the splat rendering process.
 
 ## Active Decisions and Considerations
-- Evaluating shader optimization techniques for improved performance.
-- Deciding on the best approach for user interaction and simulation controls.
-- Considering potential third-party libraries or tools to enhance development efficiency.
+- Using WebGL for hardware-accelerated rendering.
+- Implementing a grid-based approach for solving fluid dynamics.
+- Using double-buffering for efficient updates.
+- Separating the simulation logic from the rendering code.
+- Using React hooks for managing the simulation lifecycle.

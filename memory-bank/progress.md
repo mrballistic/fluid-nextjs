@@ -1,28 +1,34 @@
-# Progress: Fluid NextJS
-
-## Current Status
-The Fluid NextJS project is currently in active development. Initial foundational components have been established, and the project is progressing steadily through the early stages of implementation.
+# Progress Report: Fluid NextJS
 
 ## What Works
-- Basic Next.js project setup and structure.
-- WebGL context initialization and management.
-- Shader compilation, linking, and basic management.
-- Initial fluid simulation logic and rendering pipeline.
+- Next.js project structure and basic setup
+- WebGL context initialization and management
+- Shader compilation and program linking
+- Framebuffer creation and management
+- Basic fluid simulation algorithms
+- Event handling infrastructure (events are being captured)
+- Rendering pipeline for the dye texture
 
-## What's Left to Build
-- Advanced fluid dynamics algorithms for realistic simulation.
-- Enhanced visual effects and shader improvements.
-- Interactive user controls and UI integration.
-- Performance optimizations for improved responsiveness.
-- Cross-browser compatibility testing and adjustments.
-- Comprehensive documentation, examples, and integration guides.
+## What's In Progress
+- Debugging the splat rendering issue (splats aren't showing up)
+- Optimizing the fluid simulation performance
+- Improving the visual quality of the simulation
+
+## Current Status
+- The application initializes correctly
+- WebGL context and shaders are set up properly
+- Event handlers are receiving events
+- The dye texture is being rendered
+- However, splats are not appearing on the screen when interacting with the canvas
 
 ## Known Issues
-- Current fluid simulation lacks realism and detailed visual fidelity.
-- Performance optimization required for smoother rendering and interaction.
-- Limited user interaction capabilities at this stage.
+- **Critical**: Splats aren't showing up despite events being captured and processed
+- The event handling might not be correctly passing coordinates to the splat function
+- There might be issues with the display shader or blending settings
+- The splat color and radius settings might need adjustment
 
-## Immediate Priorities
-- Improve fluid simulation realism and visual quality.
-- Optimize rendering performance and responsiveness.
-- Develop interactive controls and user interface enhancements.
+## Technical Debt
+- Need more comprehensive logging throughout the rendering pipeline
+- Should add more error handling for WebGL operations
+- Consider adding unit tests for the fluid simulation components
+- Might need to refactor the event handling code for better reliability

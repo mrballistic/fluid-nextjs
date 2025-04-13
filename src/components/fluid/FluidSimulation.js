@@ -1,371 +1,43 @@
 // src/FluidSimulation.js
 import WebGLContextManager from './webgl/WebGLContextManager.js'; // Correct path
-import { Program, Material, compileShader } from './webgl/ShaderManager.js'; // Correct path
+import { Program, Material, compileShader } from './webgl/ShaderManager.js'; // Removed unused createProgram import
 import { createFBO, createDoubleFBO, resizeFBO, resizeDoubleFBO } from './webgl/FramebufferManager.js'; // Correct path
-
-// --- Utility Functions ---
-const getResolution = (resolution, gl) => {
-  if (!gl) return { width: 0, height: 0 };
-  let aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
-  if (aspectRatio < 1) aspectRatio = 1.0 / aspectRatio;
-  const min = Math.round(resolution);
-  const max = Math.round(resolution * aspectRatio);
-  if (gl.drawingBufferWidth > gl.drawingBufferHeight)
-    return { width: max, height: min };
-  else return { width: min, height: max };
-};
-
-// Placeholder for correctRadius - definition was missing in original file
-const correctRadius = (radius) => {
-    // TODO: Implement the correct logic for adjusting radius based on aspect ratio or other factors
-    // console.warn("correctRadius function is a placeholder.");
-    return radius;
-};
-
-
-// --- Shader Sources ---
-const baseVertexShaderSource = `
-  precision highp float;
-  attribute vec2 aPosition;
-  varying vec2 vUv;
-  varying vec2 vL;
-  varying vec2 vR;
-  varying vec2 vT;
-  varying vec2 vB;
-  uniform vec2 texelSize;
-
-  void main () {
-      vUv = aPosition * 0.5 + 0.5;
-      vL = vUv - vec2(texelSize.x, 0.0);
-      vR = vUv + vec2(texelSize.x, 0.0);
-      vT = vUv + vec2(0.0, texelSize.y);
-      vB = vUv - vec2(0.0, texelSize.y);
-      gl_Position = vec4(aPosition, 0.0, 1.0);
-  }
-`;
-
-const copyShaderSource = `
-  precision mediump float;
-  precision mediump sampler2D;
-  varying highp vec2 vUv;
-  uniform sampler2D uTexture;
-
-  void main () {
-      gl_FragColor = texture2D(uTexture, vUv);
-  }
-`;
-
-const clearShaderSource = `
-  precision mediump float;
-  precision mediump sampler2D;
-  varying highp vec2 vUv;
-  uniform sampler2D uTexture;
-  uniform float value;
-
-  void main () {
-      gl_FragColor = value * texture2D(uTexture, vUv);
-  }
-`;
-
-const displayShaderSource = `
-  precision highp float;
-  precision highp sampler2D;
-  varying vec2 vUv;
-  varying vec2 vL;
-  varying vec2 vR;
-  varying vec2 vT;
-  varying vec2 vB;
-  uniform sampler2D uTexture;
-  // uniform sampler2D uDithering; // Dithering removed for simplicity, add back if needed
-  // uniform vec2 ditherScale;
-  uniform vec2 texelSize;
-
-  vec3 linearToGamma (vec3 color) {
-      color = max(color, vec3(0));
-      return max(1.055 * pow(color, vec3(0.416666667)) - 0.055, vec3(0));
-  }
-
-  void main () {
-      vec3 c = texture2D(uTexture, vUv).rgb;
-      #ifdef SHADING
-          vec3 lc = texture2D(uTexture, vL).rgb;
-          vec3 rc = texture2D(uTexture, vR).rgb;
-          vec3 tc = texture2D(uTexture, vT).rgb;
-          vec3 bc = texture2D(uTexture, vB).rgb;
-
-          float dx = length(rc) - length(lc);
-          float dy = length(tc) - length(bc);
-
-          vec3 n = normalize(vec3(dx, dy, length(texelSize)));
-          vec3 l = vec3(0.0, 0.0, 1.0);
-
-          float diffuse = clamp(dot(n, l) + 0.7, 0.7, 1.0);
-          c *= diffuse;
-      #endif
-
-      // Apply gamma correction if needed, or handle color space conversion
-      // c = linearToGamma(c); // Uncomment if gamma correction is desired
-
-      float a = max(c.r, max(c.g, c.b)); // Basic alpha based on max component
-      gl_FragColor = vec4(c, a);
-  }
-`;
-
-const splatShaderSource = `
-  precision highp float;
-  precision highp sampler2D;
-  varying vec2 vUv;
-  uniform sampler2D uTarget;
-  uniform float aspectRatio;
-  uniform vec3 color;
-  uniform vec2 point;
-  uniform float radius;
-
-  void main () {
-      vec2 p = vUv - point.xy;
-      p.x *= aspectRatio; // Adjust for aspect ratio
-      vec3 splat = exp(-dot(p, p) / radius) * color; // Gaussian splat
-      vec3 base = texture2D(uTarget, vUv).xyz;
-      gl_FragColor = vec4(base + splat, 1.0); // Add splat to base color
-  }
-`;
-
-const advectionShaderSource = `
-  precision highp float;
-  precision highp sampler2D;
-  varying vec2 vUv;
-  uniform sampler2D uVelocity;
-  uniform sampler2D uSource;
-  uniform vec2 texelSize; // Size of velocity texture texels
-  uniform vec2 dyeTexelSize; // Size of dye texture texels (can be different)
-  uniform float dt; // Timestep
-  uniform float dissipation; // Dissipation factor
-
-  // Bilinear interpolation function
-  vec4 bilerp (sampler2D sam, vec2 uv, vec2 tsize) {
-      vec2 st = uv / tsize - 0.5;
-      vec2 iuv = floor(st);
-      vec2 fuv = fract(st);
-
-      // Sample the four nearest texels
-      vec4 a = texture2D(sam, (iuv + vec2(0.5, 0.5)) * tsize);
-      vec4 b = texture2D(sam, (iuv + vec2(1.5, 0.5)) * tsize);
-      vec4 c = texture2D(sam, (iuv + vec2(0.5, 1.5)) * tsize);
-      vec4 d = texture2D(sam, (iuv + vec2(1.5, 1.5)) * tsize);
-
-      // Interpolate horizontally, then vertically
-      return mix(mix(a, b, fuv.x), mix(c, d, fuv.x), fuv.y);
-  }
-
-  void main () {
-      #ifdef MANUAL_FILTERING
-          // Manual bilinear filtering for advection
-          vec2 coord = vUv - dt * bilerp(uVelocity, vUv, texelSize).xy * texelSize; // Backtrace coordinate
-          vec4 result = bilerp(uSource, coord, dyeTexelSize); // Sample source texture at backtraced coordinate
-      #else
-          // Hardware linear filtering (if supported and enabled)
-          vec2 coord = vUv - dt * texture2D(uVelocity, vUv).xy * texelSize; // Backtrace coordinate
-          vec4 result = texture2D(uSource, coord); // Sample source texture
-      #endif
-      float decay = 1.0 + dissipation * dt; // Calculate decay factor
-      gl_FragColor = result / decay; // Apply dissipation
-  }
-`;
-
-const divergenceShaderSource = `
-  precision mediump float;
-  precision mediump sampler2D;
-  varying highp vec2 vUv;
-  varying highp vec2 vL; // Left neighbor UV
-  varying highp vec2 vR; // Right neighbor UV
-  varying highp vec2 vT; // Top neighbor UV
-  varying highp vec2 vB; // Bottom neighbor UV
-  uniform sampler2D uVelocity; // Velocity field texture
-
-  void main () {
-      // Sample velocity components from neighbors
-      float L = texture2D(uVelocity, vL).x;
-      float R = texture2D(uVelocity, vR).x;
-      float T = texture2D(uVelocity, vT).y;
-      float B = texture2D(uVelocity, vB).y;
-
-      // Handle boundary conditions (optional, depends on desired behavior)
-      vec2 C = texture2D(uVelocity, vUv).xy;
-      if (vL.x < 0.0) { L = -C.x; } // Reflective boundary left
-      if (vR.x > 1.0) { R = -C.x; } // Reflective boundary right
-      if (vT.y > 1.0) { T = -C.y; } // Reflective boundary top
-      if (vB.y < 0.0) { B = -C.y; } // Reflective boundary bottom
-
-      // Calculate divergence using central differencing
-      float div = 0.5 * (R - L + T - B);
-      gl_FragColor = vec4(div, 0.0, 0.0, 1.0); // Store divergence in red channel
-  }
-`;
-
-const curlShaderSource = `
-  precision mediump float;
-  precision mediump sampler2D;
-  varying highp vec2 vUv;
-  varying highp vec2 vL;
-  varying highp vec2 vR;
-  varying highp vec2 vT;
-  varying highp vec2 vB;
-  uniform sampler2D uVelocity; // Velocity field texture
-
-  void main () {
-      // Sample velocity components from neighbors
-      float L = texture2D(uVelocity, vL).y; // y-component of left neighbor
-      float R = texture2D(uVelocity, vR).y; // y-component of right neighbor
-      float T = texture2D(uVelocity, vT).x; // x-component of top neighbor
-      float B = texture2D(uVelocity, vB).x; // x-component of bottom neighbor
-
-      // Calculate curl (vorticity) using central differencing
-      // curl = dVx/dy - dVy/dx (approximated)
-      // Note: The original shader seems to calculate R - L - T + B. Let's verify the formula.
-      // Curl_z = (dVy/dx - dVx/dy). Approximation: (R_y - L_y)/dx - (T_x - B_x)/dy
-      // Assuming dx=dy=1 for simplicity in grid space: R_y - L_y - (T_x - B_x) = R_y - L_y - T_x + B_x
-      // The original seems to be calculating T_x - B_x - (R_y - L_y) = T_x - B_x - R_y + L_y
-      // Let's stick to the original implementation's calculation: R - L - T + B
-      float vorticity = R - L - T + B;
-
-      gl_FragColor = vec4(0.5 * vorticity, 0.0, 0.0, 1.0); // Store curl in red channel, scaled
-  }
-`;
-
-const vorticityShaderSource = `
-  precision highp float;
-  precision highp sampler2D;
-  varying vec2 vUv;
-  varying vec2 vL;
-  varying vec2 vR;
-  varying vec2 vT;
-  varying vec2 vB;
-  uniform sampler2D uVelocity; // Current velocity field
-  uniform sampler2D uCurl;     // Curl (vorticity) field
-  uniform float curl;        // Curl confinement strength parameter
-  uniform float dt;          // Timestep
-
-  void main () {
-      // Sample curl values from neighbors and center
-      float L = texture2D(uCurl, vL).x;
-      float R = texture2D(uCurl, vR).x;
-      float T = texture2D(uCurl, vT).x;
-      float B = texture2D(uCurl, vB).x;
-      float C = texture2D(uCurl, vUv).x; // Center curl value
-
-      // Calculate the gradient of the absolute curl magnitude (approximated)
-      // Force points towards higher curl magnitude to confine vorticity
-      vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L));
-
-      // Normalize the force vector (avoid division by zero)
-      force /= length(force) + 0.0001;
-
-      // Apply curl confinement force, scaled by the center curl value and strength parameter
-      force *= curl * C;
-
-      // The original shader flips the y-component. Let's keep it for consistency.
-      force.y *= -1.0;
-
-      // Get current velocity
-      vec2 velocity = texture2D(uVelocity, vUv).xy;
-
-      // Add the vorticity confinement force to the velocity (scaled by dt)
-      velocity += force * dt;
-
-      // Clamp velocity to prevent instability (optional but recommended)
-      velocity = min(max(velocity, -1000.0), 1000.0);
-
-      gl_FragColor = vec4(velocity, 0.0, 1.0); // Output updated velocity
-  }
-`;
-
-const pressureShaderSource = `
-  precision mediump float;
-  precision mediump sampler2D;
-  varying highp vec2 vUv;
-  varying highp vec2 vL;
-  varying highp vec2 vR;
-  varying highp vec2 vT;
-  varying highp vec2 vB;
-  uniform sampler2D uPressure;   // Pressure field from previous iteration
-  uniform sampler2D uDivergence; // Divergence field
-
-  void main () {
-      // Sample pressure from neighbors and divergence from center
-      float L = texture2D(uPressure, vL).x;
-      float R = texture2D(uPressure, vR).x;
-      float T = texture2D(uPressure, vT).x;
-      float B = texture2D(uPressure, vB).x;
-      // float C = texture2D(uPressure, vUv).x; // Center pressure (not used in this Jacobi iteration step)
-      float divergence = texture2D(uDivergence, vUv).x;
-
-      // Jacobi iteration for Poisson equation:
-      // Solve nabla^2(Pressure) = Divergence
-      // Approximation: (L + R + T + B - 4*C) / h^2 = Divergence
-      // Rearranging for C (next iteration): C = (L + R + T + B - Divergence * h^2) / 4
-      // Assuming h=1 (grid spacing): Pressure = (L + R + B + T - Divergence) * 0.25
-      float pressure = (L + R + B + T - divergence) * 0.25;
-
-      gl_FragColor = vec4(pressure, 0.0, 0.0, 1.0); // Output calculated pressure
-  }
-`;
-
-const gradientSubtractShaderSource = `
-  precision mediump float;
-  precision mediump sampler2D;
-  varying highp vec2 vUv;
-  varying highp vec2 vL;
-  varying highp vec2 vR;
-  varying highp vec2 vT;
-  varying highp vec2 vB;
-  uniform sampler2D uPressure; // Solved pressure field
-  uniform sampler2D uVelocity; // Current (divergent) velocity field
-
-  void main () {
-      // Sample pressure from neighbors
-      float L = texture2D(uPressure, vL).x;
-      float R = texture2D(uPressure, vR).x;
-      float T = texture2D(uPressure, vT).x;
-      float B = texture2D(uPressure, vB).x;
-
-      // Get current velocity
-      vec2 velocity = texture2D(uVelocity, vUv).xy;
-
-      // Calculate pressure gradient using central differencing
-      // grad(Pressure) = ( (R - L) / (2*dx), (T - B) / (2*dy) )
-      // Assuming dx=dy=1 for grid space: grad(Pressure) = 0.5 * (R - L, T - B)
-      // Subtract the pressure gradient from the velocity field to make it divergence-free
-      // Velocity_new = Velocity_old - grad(Pressure) * dt (dt often incorporated or assumed 1)
-      // The shader uses vec2(R - L, T - B) which is 2 * grad(Pressure).
-      // This might be intentional scaling or assumes a different formulation. Let's stick to it.
-      velocity.xy -= vec2(R - L, T - B); // Subtract scaled gradient
-
-      gl_FragColor = vec4(velocity, 0.0, 1.0); // Output divergence-free velocity
-  }
-`;
+import { getResolution, correctRadius } from './utils.js'; // Import utilities
+import * as shaders from './webgl/shaders.js'; // Import all shaders
 
 
 // --- Fluid Simulation Class ---
 class FluidSimulation {
   constructor(gl, config) {
+    console.log("FluidSimulation constructor called");
     this.gl = gl;
     this.config = config; // Store config for later use
 
-    const contextResult = WebGLContextManager.getWebGLContext(gl.canvas);
+    // Use the provided WebGL context instead of creating a new one
+    // This ensures we use the same context with preserveDrawingBuffer: true
+    const contextResult = { 
+      gl: gl, 
+      ext: WebGLContextManager.getWebGLContext(gl.canvas).ext,
+      isWebGL2: gl instanceof WebGL2RenderingContext
+    };
     if (!contextResult) {
+        console.error("WebGLContextManager.getWebGLContext failed");
         throw new Error("Failed to initialize WebGL context and extensions.");
     }
+    console.log("WebGL context and extensions initialized successfully");
     this.ext = contextResult.ext;
     this.isWebGL2 = contextResult.isWebGL2; // Store WebGL version flag
+    console.log("WebGL version:", this.isWebGL2 ? "WebGL 2" : "WebGL 1");
+    console.log("Extensions:", this.ext);
 
     // Compile the shared base vertex shader
 const baseVertexShader = compileShader(
   gl,
   gl.VERTEX_SHADER,
-  baseVertexShaderSource
+  shaders.baseVertexShaderSource // Use imported shader
 );
 if (!baseVertexShader) {
-  console.error("Base vertex shader failed to compile. Source:", baseVertexShaderSource);
+  console.error("Base vertex shader failed to compile. Source:", shaders.baseVertexShaderSource);
         // Shader compilation error is logged in compileShader
         throw new Error("Failed to compile base vertex shader.");
     }
@@ -374,18 +46,18 @@ if (!baseVertexShader) {
 
     // --- Initialize Programs and Materials ---
     // Use Program for shaders without keywords, Material for shaders with keywords
-this.copyProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, copyShaderSource));
-this.clearProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, clearShaderSource));
-this.splatProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, splatShaderSource));
-this.advectionProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, advectionShaderSource));
-this.divergenceProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, divergenceShaderSource));
-this.curlProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, curlShaderSource));
-this.vorticityProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, vorticityShaderSource));
-this.pressureProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, pressureShaderSource));
-this.gradienSubtractProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, gradientSubtractShaderSource));
+this.copyProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, shaders.copyShaderSource));
+this.clearProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, shaders.clearShaderSource));
+this.splatProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, shaders.splatShaderSource));
+this.advectionProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, shaders.advectionShaderSource));
+this.divergenceProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, shaders.divergenceShaderSource));
+this.curlProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, shaders.curlShaderSource));
+this.vorticityProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, shaders.vorticityShaderSource));
+this.pressureProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, shaders.pressureShaderSource));
+this.gradienSubtractProgram = new Program(gl, baseVertexShader, compileShader(gl, gl.FRAGMENT_SHADER, shaders.gradientSubtractShaderSource));
 
     // Display uses Material because it has the SHADING keyword option
-    this.displayMaterial = new Material(gl, baseVertexShader, displayShaderSource);
+    this.displayMaterial = new Material(gl, baseVertexShader, shaders.displayShaderSource);
 
     // Check if any program failed to initialize
     console.log("Checking shader program initialization status:", {
@@ -445,7 +117,7 @@ if (!this.copyProgram.program || !this.clearProgram.program || !this.splatProgra
       gl.bindBuffer(gl.ARRAY_BUFFER, null);
       // Keep ELEMENT_ARRAY_BUFFER bound as it's needed for drawElements
 
-      return (target, clear = false) => {
+      return (target, clear = false) => { // Re-added clear parameter, default false
         if (target == null) {
           // Blitting to canvas
           gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -454,10 +126,11 @@ if (!this.copyProgram.program || !this.clearProgram.program || !this.splatProgra
           // Blitting to FBO
           gl.viewport(0, 0, target.width, target.height);
           gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
-        }
-        if (clear) {
-          gl.clearColor(0.0, 0.0, 0.0, 1.0); // Set clear color
-          gl.clear(gl.COLOR_BUFFER_BIT);     // Clear
+          if (clear) { // Only clear if explicitly requested
+            // Only clear FBO targets, not the main canvas
+            gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear FBOs to black
+            gl.clear(gl.COLOR_BUFFER_BIT);
+          }
         }
         // Bind necessary buffers and draw
         gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVertexBuffer); // Ensure vertex buffer is bound
@@ -593,6 +266,7 @@ console.trace("Stack trace for initialization error:");
   // --- Simulation Steps ---
 
   step(dt) {
+    // Restore step function body
     if (!this.gl || !this.velocity || !this.dye || !this.pressure || !this.divergence || !this.curl) {
         console.error("Simulation cannot step, required resources missing.");
         return;
@@ -684,6 +358,7 @@ console.trace("Stack trace for initialization error:");
     this.gl.uniform1i(this.gradienSubtractProgram.uniforms.uVelocity, this.velocity.read.attach(1)); // Use velocity after vorticity
     this.blit(this.velocity.write); // Output divergence-free velocity
     this.velocity.swap();
+    // End of restored step function body
   }
 
   // --- Rendering ---
@@ -693,8 +368,18 @@ console.trace("Stack trace for initialization error:");
         console.error("Cannot render, required resources missing.");
         return;
     }
+    
+    // Only log once every 100 frames to reduce console spam
+    if (this.frameCount % 100 === 0) {
+        console.log(`Rendering dye texture - Width: ${this.dye.width}, Height: ${this.dye.height}`);
+    }
+    this.frameCount = (this.frameCount || 0) + 1;
+    
+    // Do NOT clear the canvas between frames to preserve splats
+    // We're using preserveDrawingBuffer: true in the WebGL context options
+    
     // Render dye to the target (null for canvas)
-    this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA); // Or appropriate blend mode
+    this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA); // Revert to standard alpha blending
     this.gl.enable(this.gl.BLEND);
 
     // Set viewport for rendering
@@ -709,7 +394,6 @@ console.trace("Stack trace for initialization error:");
         this.gl.viewport(0, 0, target.width, target.height);
     }
 
-
     this.displayMaterial.bind(); // Bind the display material (handles keywords)
 
     // Set uniforms for display shader
@@ -717,18 +401,14 @@ console.trace("Stack trace for initialization error:");
         // Use dye texel size for display, assuming display matches dye resolution
         this.gl.uniform2f(this.displayMaterial.uniforms.texelSize, this.dye.texelSizeX, this.dye.texelSizeY);
     }
-    this.gl.uniform1i(this.displayMaterial.uniforms.uTexture, this.dye.read.attach(0)); // Render the dye texture
+    
+    // Attach dye texture and set uniform
+    const textureUnit = this.dye.read.attach(0);
+    this.gl.uniform1i(this.displayMaterial.uniforms.uTexture, textureUnit);
 
-    // Add uniforms for dithering if needed and configured
-    // if (this.config.DITHERING && this.ditheringTexture && this.displayMaterial.uniforms.uDithering) {
-    //     this.gl.uniform1i(this.displayMaterial.uniforms.uDithering, this.ditheringTexture.attach(1));
-    //     // Calculate dither scale based on target size and texture size
-    //     const scaleX = (target ? target.width : this.gl.drawingBufferWidth) / this.ditheringTexture.width;
-    //     const scaleY = (target ? target.height : this.gl.drawingBufferHeight) / this.ditheringTexture.height;
-    //     this.gl.uniform2f(this.displayMaterial.uniforms.ditherScale, scaleX, scaleY);
-    // }
-
-    this.blit(target, this.config.TRANSPARENT); // Blit to target, clear if background is transparent
+    // When rendering to canvas (target == null), do not clear.
+    // The TRANSPARENT config is likely for FBOs, not the final canvas render.
+    this.blit(target); // Rely on default clear = false
 
     this.gl.disable(this.gl.BLEND);
   }
@@ -738,8 +418,20 @@ console.trace("Stack trace for initialization error:");
   splat(x, y, dx, dy, color) {
      if (!this.gl || !this.velocity || !this.dye || !this.splatProgram || !this.splatProgram.program) {
         console.error("Cannot splat, required resources missing or program invalid.");
+        console.error("GL:", !!this.gl, "Velocity:", !!this.velocity, "Dye:", !!this.dye, 
+                     "SplatProgram:", !!this.splatProgram, 
+                     "SplatProgram.program:", this.splatProgram ? !!this.splatProgram.program : "N/A");
         return;
     }
+
+    console.log(`SPLAT called at (${x.toFixed(3)}, ${y.toFixed(3)}) with color (${color.r.toFixed(2)}, ${color.g.toFixed(2)}, ${color.b.toFixed(2)})`);
+
+    // Amplify the color to make it more visible
+    const amplifiedColor = {
+        r: color.r * 10.0,
+        g: color.g * 10.0,
+        b: color.b * 10.0
+    };
 
     // Splat velocity
     this.gl.viewport(0, 0, this.velocity.width, this.velocity.height);
@@ -748,21 +440,32 @@ console.trace("Stack trace for initialization error:");
     this.gl.uniform1f(this.splatProgram.uniforms.aspectRatio, this.gl.canvas.width / this.gl.canvas.height);
     this.gl.uniform2f(this.splatProgram.uniforms.point, x, y); // Normalized coordinates (0-1)
     this.gl.uniform3f(this.splatProgram.uniforms.color, dx, dy, 0.0); // Velocity change
-    this.gl.uniform1f(this.splatProgram.uniforms.radius, correctRadius(this.config.SPLAT_RADIUS / 100.0));
+    
+    // Use fixed large radius instead of calculated one
+    this.gl.uniform1f(this.splatProgram.uniforms.radius, 0.1);
+    
+    console.log(`Splat Velocity - Point: (${x.toFixed(3)}, ${y.toFixed(3)}), Radius: 0.1`);
+    
     this.blit(this.velocity.write);
     this.velocity.swap();
+    console.log("Velocity splat complete and buffers swapped");
 
     // Splat dye
     this.gl.viewport(0, 0, this.dye.width, this.dye.height);
     // splatProgram is already bound
     this.gl.uniform1i(this.splatProgram.uniforms.uTarget, this.dye.read.attach(0));
-    // Aspect ratio might need adjustment if dye/velocity aspect ratios differ significantly
-    // Consider using dye aspect ratio if resolutions differ:
-    // this.gl.uniform1f(this.splatProgram.uniforms.aspectRatio, this.dye.width / this.dye.height);
-    this.gl.uniform3f(this.splatProgram.uniforms.color, color.r, color.g, color.b); // Dye color
-    // Radius might also need adjustment based on dye resolution vs sim resolution
-    this.blit(this.dye.write);
-    this.dye.swap();
+    
+    // Use amplified color
+    this.gl.uniform3f(this.splatProgram.uniforms.color, amplifiedColor.r, amplifiedColor.g, amplifiedColor.b);
+    
+    // Use fixed large radius for dye as well
+    this.gl.uniform1f(this.splatProgram.uniforms.radius, 0.1);
+    
+    console.log(`Splat Dye - Point: (${x.toFixed(3)}, ${y.toFixed(3)}), Color: (${amplifiedColor.r.toFixed(2)}, ${amplifiedColor.g.toFixed(2)}, ${amplifiedColor.b.toFixed(2)}), Radius: 0.1`);
+    
+    this.blit(this.dye.write); // Draw splat into dye.write
+    this.dye.swap(); // Enable swap to make the splat visible
+    console.log("Dye splat complete and buffers swapped");
   }
 
   // --- Cleanup ---

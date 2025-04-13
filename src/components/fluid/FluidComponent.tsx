@@ -1,15 +1,14 @@
 "use client";
 import React, {
-  // useState, // Removed unused import
   useEffect,
   useRef,
   useCallback,
-  useMemo, // Added useMemo
-  memo, // Added memo
-  CSSProperties, // Import CSSProperties for style prop typing
-  // useMemo, // Removed duplicate import
+  useMemo,
+  memo,
+  CSSProperties,
 } from "react";
-import FluidSimulation from './FluidSimulation.js'; // Keep .js extension for now, or update FluidSimulation to .ts
+import FluidSimulation from './FluidSimulation.js';
+import logger from './utils/logger.js';
 
 // Define interfaces for configuration and props
 interface FluidConfig {
@@ -42,129 +41,73 @@ interface FluidConfig {
 
 interface FluidProps {
   style?: CSSProperties;
-  config?: Partial<FluidConfig>; // Use Partial as config is optional and can override defaults
+  config?: Partial<FluidConfig>;
 }
 
-
-// --- Utility Functions (Keep only those needed by the React component) ---
-const scaleByPixelRatio = (input: number): number => { // Add types
-  // Check if window is defined (for server-side rendering or testing environments)
+// --- Utility Functions ---
+const scaleByPixelRatio = (input: number): number => {
   if (typeof window === 'undefined') return Math.floor(input);
   const pixelRatio = window.devicePixelRatio || 1;
   return Math.floor(input * pixelRatio);
 };
 
-// HSVtoRGB might be needed if generateColor is used directly in the component
-const HSVtoRGB = (h: number, s: number, v: number): { r: number; g: number; b: number } => { // Add types
-  let r: number = 0, g: number = 0, b: number = 0; // Initialize variables
+const HSVtoRGB = (h: number, s: number, v: number): { r: number; g: number; b: number } => {
+  let r: number = 0, g: number = 0, b: number = 0;
   const i = Math.floor(h * 6);
   const f = h * 6 - i;
   const p = v * (1 - s);
   const q = v * (1 - f * s);
   const t = v * (1 - (1 - f) * s);
   switch (i % 6) {
-    case 0:
-      r = v;
-      g = t;
-      b = p;
-      break;
-    case 1:
-      r = q;
-      g = v;
-      b = p;
-      break;
-    case 2:
-      r = p;
-      g = v;
-      b = t;
-      break;
-    case 3:
-      r = p;
-      g = q;
-      b = v;
-      break;
-    case 4:
-      r = t;
-      g = p;
-      b = v;
-      break;
-    case 5:
-      r = v;
-      g = p;
-      b = q;
-      break;
-    default:
-      break;
+    case 0: r = v; g = t; b = p; break;
+    case 1: r = q; g = v; b = p; break;
+    case 2: r = p; g = v; b = t; break;
+    case 3: r = p; g = q; b = v; break;
+    case 4: r = t; g = p; b = v; break;
+    case 5: r = v; g = p; b = q; break;
   }
   return { r, g, b };
 };
 
-// generateColor might be needed for splats
-const generateColor = (): { r: number; g: number; b: number } => { // Add return type
-  const c = HSVtoRGB(Math.random(), 1.0, 1.0); // Use const
-  c.r *= 0.15; // Dim the color
-  c.g *= 0.15;
-  c.b *= 0.15;
-  return c;
+const generateColor = (): { r: number; g: number; b: number } => {
+  return HSVtoRGB(Math.random(), 1.0, 1.0);
 };
 
-// Removed unused 'wrap' function
-// const wrap = (value, min, max) => {
-//   const range = max - min;
-//   if (range === 0) return min;
-//   return ((value - min) % range) + min;
-// };
-
-// Removed unused 'hashCode' function
-// const hashCode = (s: string): number => { // Add types if uncommented
-//   if (s.length === 0) return 0;
-//   let hash = 0;
-//   for (let i = 0; i < s.length; i++) {
-//     hash = (hash << 5) - hash + s.charCodeAt(i);
-//     hash |= 0; // Convert to 32bit integer
-//   }
-//   return hash;
-// };
-// Removed leftover code from commented hashCode function
-
-// --- REMOVE WebGL Utils, Shaders, Program, Material, FluidSimulation ---
-// --- The Fluid React Component ---
-
-// Default configuration (can be overridden by props)
+// Default configuration - using values from the original working code
 const defaultConfig = {
   SIM_RESOLUTION: 128,
   DYE_RESOLUTION: 1024,
   CAPTURE_RESOLUTION: 512,
-  DENSITY_DISSIPATION: 1,
-  VELOCITY_DISSIPATION: 0.2,
-  PRESSURE: 0.8,
+  DENSITY_DISSIPATION: 3.5, // Using original value
+  VELOCITY_DISSIPATION: 2.0, // Using original value
+  PRESSURE: 0.1, // Using original value
   PRESSURE_ITERATIONS: 20,
-  CURL: 30,
-  SPLAT_RADIUS: 0.25,
-  SPLAT_FORCE: 6000,
+  CURL: 3, // Using original value
+  SPLAT_RADIUS: 0.2, // Using original value
+  SPLAT_FORCE: 6000, // Using original value
   SHADING: true,
   COLORFUL: true,
   COLOR_UPDATE_SPEED: 10,
   PAUSED: false,
-  BACK_COLOR: { r: 0, g: 0, b: 0 },
-  TRANSPARENT: false,
-  BLOOM: true,
+  BACK_COLOR: { r: 0.5, g: 0, b: 0 }, // Using original value
+  TRANSPARENT: true, // Using original value
+  BLOOM: true, 
   BLOOM_ITERATIONS: 8,
   BLOOM_RESOLUTION: 256,
   BLOOM_INTENSITY: 0.8,
   BLOOM_THRESHOLD: 0.6,
   BLOOM_SOFT_KNEE: 0.7,
-  SUNRAYS: true,
+  SUNRAYS: true, 
   SUNRAYS_RESOLUTION: 196,
   SUNRAYS_WEIGHT: 1.0,
 };
 
-
 const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null); // Type the ref
-  const fluidSimRef = useRef<FluidSimulation | null>(null); // Type the ref
-  const animationFrameId = useRef<number | null>(null); // Type the ref
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fluidSimRef = useRef<FluidSimulation | null>(null);
+  const animationFrameId = useRef<number | null>(null);
   const lastUpdateTime = useRef(Date.now());
+  
   // Define pointer type
   interface Pointer {
     id: number;
@@ -176,11 +119,20 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
     moved: boolean;
     color: { r: number; g: number; b: number };
   }
-  const pointers = useRef<Pointer[]>([{ id: -1, x: -1, y: -1, dx: 0, dy: 0, down: false, moved: false, color: { r: 30, g: 0, b: 300 } }]); // Type the ref
+  
+  const pointers = useRef<Pointer[]>([{ 
+    id: -1, 
+    x: -1, 
+    y: -1, 
+    dx: 0, 
+    dy: 0, 
+    down: false, 
+    moved: false, 
+    color: { r: 1.0, g: 0.5, b: 0.7 } 
+  }]);
 
-  // Merge default config with prop config, ensure type safety
+  // Merge default config with prop config
   const config: FluidConfig = useMemo(() => ({ ...defaultConfig, ...propConfig }), [propConfig]);
-
 
   // --- Simulation Update ---
   const update = useCallback(() => {
@@ -196,47 +148,56 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
     animationFrameId.current = requestAnimationFrame(update);
   }, [config.PAUSED]);
 
-
   // --- Initialization and Cleanup ---
   useEffect(() => {
-  console.log("Fluid component mounted.");
+    logger.log("Fluid component mounted.");
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     // --- Initialize WebGL Context ---
-    // Use a helper or directly get context here
     const params = {
-      alpha: true,
+      alpha: false,
       depth: false,
       stencil: false,
       antialias: false,
-      preserveDrawingBuffer: false,
+      preserveDrawingBuffer: true, // Changed to true to prevent clearing between frames
     };
-    // Ensure gl context type is correct
-    const glContext = canvas.getContext("webgl2", params) || canvas.getContext("webgl", params) || canvas.getContext("experimental-webgl", params);
+    
+    const glContext = canvas.getContext("webgl2", params) || 
+                      canvas.getContext("webgl", params) || 
+                      canvas.getContext("experimental-webgl", params);
 
-    // Explicitly check if the context is a valid WebGL context
-    if (!(glContext instanceof WebGLRenderingContext) && !(glContext instanceof WebGL2RenderingContext)) {
-      console.error("Failed to get a valid WebGL context.");
+    if (!(glContext instanceof WebGLRenderingContext) && 
+        !(glContext instanceof WebGL2RenderingContext)) {
+      logger.error("Failed to get a valid WebGL context.");
       return;
     }
 
-    const gl = glContext; // Assign to gl after successful type check
+    const gl = glContext;
 
     // --- Create Fluid Simulation Instance ---
     try {
-        // gl is now guaranteed to be WebGLRenderingContext or WebGL2RenderingContext
-        fluidSimRef.current = new FluidSimulation(gl, config);
+      logger.log("Creating FluidSimulation with WebGL context");
+      logger.log("Canvas dimensions:", canvas.width, "x", canvas.height);
+      fluidSimRef.current = new FluidSimulation(gl, config);
+      logger.log("FluidSimulation created successfully");
+      
+      // Remove the test splat that was filling the screen
+      // setTimeout(() => {
+      //   if (fluidSimRef.current) {
+      //     logger.log("Creating test splat");
+      //     const testColor = { r: 1.0, g: 0.0, b: 0.0 }; // Bright red
+      //     fluidSimRef.current.splat(0.5, 0.5, 0, 0, testColor);
+      //     logger.log("Test splat created");
+      //   }
+      // }, 1000);
     } catch (error) {
-        console.error("Failed to initialize Fluid Simulation:", error);
-        // Handle initialization error (e.g., show error message)
-        return; // Stop execution if simulation fails to initialize
+      logger.error("Failed to initialize Fluid Simulation:", error);
+      return;
     }
-
 
     // --- Resize Handling ---
     const handleResize = () => {
-      // Ensure canvas exists before accessing properties
       if (!canvas) return;
       const width = scaleByPixelRatio(canvas.clientWidth);
       const height = scaleByPixelRatio(canvas.clientHeight);
@@ -248,112 +209,171 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         }
       }
     };
+    
     handleResize(); // Initial resize
     window.addEventListener("resize", handleResize);
 
     // --- Pointer Event Handling ---
-    const getPointer = (id: number): Pointer => { // Add type annotation
-        let pointer = pointers.current.find(p => p.id === id);
-        if (!pointer) {
-            // Ensure the object matches the Pointer interface
-            const newPointer: Pointer = { id, x: 0, y: 0, dx: 0, dy: 0, down: false, moved: false, color: generateColor() }; // Use const for newPointer
-            pointers.current.push(newPointer);
-            pointer = newPointer; // Assign newPointer to pointer
-        }
-        return pointer;
+    const getPointer = (id: number): Pointer => {
+      let pointer = pointers.current.find(p => p.id === id);
+      if (!pointer) {
+        const newPointer: Pointer = { 
+          id, 
+          x: 0, 
+          y: 0, 
+          dx: 0, 
+          dy: 0, 
+          down: false, 
+          moved: false, 
+          color: generateColor() 
+        };
+        pointers.current.push(newPointer);
+        pointer = newPointer;
+      }
+      return pointer;
     };
 
-    const updatePointer = (pointer: Pointer, canvasBounds: DOMRect, x: number, y: number) => { // Add type annotations
-        pointer.moved = pointer.down;
-        // Ensure SPLAT_FORCE is defined or provide a default
-        const splatForce = config.SPLAT_FORCE ?? 6000;
-        pointer.dx = (x - pointer.x) * splatForce;
-        pointer.dy = (y - pointer.y) * -splatForce; // Invert Y
-        pointer.x = x;
-        pointer.y = y;
-    };
+    const normalizeCoord = (coord: number, dimension: number): number => coord / dimension;
 
-     const normalizeCoord = (coord: number, dimension: number): number => coord / dimension; // Add type annotations
-
-
-    const handlePointerDown = (e: PointerEvent) => { // Type the event
+    const handlePointerDown = (e: PointerEvent) => {
       if (!canvas) return;
       const canvasBounds = canvas.getBoundingClientRect();
       const x = normalizeCoord(e.clientX - canvasBounds.left, canvasBounds.width);
       const y = normalizeCoord(e.clientY - canvasBounds.top, canvasBounds.height);
-      const pointer = getPointer(e.pointerId ?? 0); // Use const
+      const pointer = getPointer(e.pointerId ?? 0);
       pointer.down = true;
-      pointer.moved = false; // Reset moved flag on down
+      pointer.moved = true; // Set moved to true to trigger an immediate splat
       pointer.x = x;
       pointer.y = y;
       pointer.color = generateColor(); // Assign new color on press
+      
+      // Create an immediate splat on pointer down
+      if (fluidSimRef.current) {
+        fluidSimRef.current.splat(x, 1.0 - y, 0, 0, pointer.color); // Initial splat with no velocity
+      }
+      
+      logger.log(`Pointer down at (${x.toFixed(3)}, ${y.toFixed(3)})`);
     };
 
-    const handlePointerMove = (e: PointerEvent) => { // Type the event
+    const handlePointerMove = (e: PointerEvent) => {
       if (!canvas) return;
       const canvasBounds = canvas.getBoundingClientRect();
       const x = normalizeCoord(e.clientX - canvasBounds.left, canvasBounds.width);
       const y = normalizeCoord(e.clientY - canvasBounds.top, canvasBounds.height);
-      const pointer = getPointer(e.pointerId ?? 0); // Use const
+      const pointer = getPointer(e.pointerId ?? 0);
       if (!pointer.down) return; // Only track if down
-      updatePointer(pointer, canvasBounds, x, y);
+      
+      // Calculate velocity
+      const dx = (x - pointer.x) * (config.SPLAT_FORCE ?? 6000);
+      const dy = (y - pointer.y) * -(config.SPLAT_FORCE ?? 6000); // Invert Y
+      
+      // Create a splat directly on move for immediate feedback
+      if (fluidSimRef.current && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+        fluidSimRef.current.splat(x, 1.0 - y, dx, dy, pointer.color);
+        logger.log(`Direct splat on move: (${x.toFixed(3)}, ${y.toFixed(3)}), velocity: (${dx.toFixed(0)}, ${dy.toFixed(0)})`);
+      }
+      
+      // Update pointer for the splat loop
+      pointer.x = x;
+      pointer.y = y;
+      pointer.dx = dx;
+      pointer.dy = dy;
+      pointer.moved = true;
     };
 
-    const handlePointerUp = (e: PointerEvent) => { // Type the event
-      const pointer = getPointer(e.pointerId ?? 0); // Use const
+    const handlePointerUp = (e: PointerEvent) => {
+      const pointer = getPointer(e.pointerId ?? 0);
       pointer.down = false;
     };
 
-     const handleTouchStart = (e: TouchEvent) => { // Type the event
-        e.preventDefault(); // Prevent default touch behavior like scrolling
-        if (!canvas) return;
-        const touches = e.targetTouches;
-        const canvasBounds = canvas.getBoundingClientRect();
-        for (let i = 0; i < touches.length; i++) {
-            const touch = touches[i];
-            const x = normalizeCoord(touch.clientX - canvasBounds.left, canvasBounds.width);
-            const y = normalizeCoord(touch.clientY - canvasBounds.top, canvasBounds.height);
-            const pointer = getPointer(touch.identifier); // Use const
-            pointer.down = true;
-            pointer.moved = false;
-            pointer.x = x;
-            pointer.y = y;
-            pointer.color = generateColor();
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault(); // Prevent default touch behavior like scrolling
+      if (!canvas) return;
+      const touches = e.targetTouches;
+      const canvasBounds = canvas.getBoundingClientRect();
+      for (let i = 0; i < touches.length; i++) {
+        const touch = touches[i];
+        const x = normalizeCoord(touch.clientX - canvasBounds.left, canvasBounds.width);
+        const y = normalizeCoord(touch.clientY - canvasBounds.top, canvasBounds.height);
+        const pointer = getPointer(touch.identifier);
+        pointer.down = true;
+        pointer.moved = true; // Set moved to true to trigger an immediate splat
+        pointer.x = x;
+        pointer.y = y;
+        pointer.color = generateColor();
+        
+        // Create an immediate splat on touch start
+        if (fluidSimRef.current) {
+          fluidSimRef.current.splat(x, 1.0 - y, 0, 0, pointer.color); // Initial splat with no velocity
         }
+        
+        logger.log(`Touch start at (${x.toFixed(3)}, ${y.toFixed(3)})`);
+      }
     };
 
-    const handleTouchMove = (e: TouchEvent) => { // Type the event
-        e.preventDefault();
-        if (!canvas) return;
-        const touches = e.targetTouches;
-        const canvasBounds = canvas.getBoundingClientRect();
-        for (let i = 0; i < touches.length; i++) {
-            const touch = touches[i];
-            const x = normalizeCoord(touch.clientX - canvasBounds.left, canvasBounds.width);
-            const y = normalizeCoord(touch.clientY - canvasBounds.top, canvasBounds.height);
-            const pointer = getPointer(touch.identifier); // Use const
-            if (!pointer.down) continue; // Should not happen but safety check
-            updatePointer(pointer, canvasBounds, x, y);
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (!canvas) return;
+      const touches = e.targetTouches;
+      const canvasBounds = canvas.getBoundingClientRect();
+      for (let i = 0; i < touches.length; i++) {
+        const touch = touches[i];
+        const x = normalizeCoord(touch.clientX - canvasBounds.left, canvasBounds.width);
+        const y = normalizeCoord(touch.clientY - canvasBounds.top, canvasBounds.height);
+        const pointer = getPointer(touch.identifier);
+        if (!pointer.down) continue; // Should not happen but safety check
+        
+        // Calculate velocity
+        const dx = (x - pointer.x) * (config.SPLAT_FORCE ?? 6000);
+        const dy = (y - pointer.y) * -(config.SPLAT_FORCE ?? 6000); // Invert Y
+        
+        // Create a splat directly on move for immediate feedback
+        if (fluidSimRef.current && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+          fluidSimRef.current.splat(x, 1.0 - y, dx, dy, pointer.color);
         }
+        
+        // Update pointer for the splat loop
+        pointer.x = x;
+        pointer.y = y;
+        pointer.dx = dx;
+        pointer.dy = dy;
+        pointer.moved = true;
+      }
     };
 
-    const handleTouchEnd = (e: TouchEvent) => { // Type the event
-        const touches = e.changedTouches;
-        for (let i = 0; i < touches.length; i++) {
-            const pointer = getPointer(touches[i].identifier); // Use const
-            pointer.down = false;
-        }
+    const handleTouchEnd = (e: TouchEvent) => {
+      const touches = e.changedTouches;
+      for (let i = 0; i < touches.length; i++) {
+        const pointer = getPointer(touches[i].identifier);
+        pointer.down = false;
+      }
     };
 
-
-    // Add type safety for event listeners
-    canvas.addEventListener("pointerdown", handlePointerDown as EventListener);
-    canvas.addEventListener("pointermove", handlePointerMove as EventListener);
-    window.addEventListener("pointerup", handlePointerUp as EventListener); // Listen on window for up event
-    canvas.addEventListener("touchstart", handleTouchStart as EventListener, { passive: false });
-    canvas.addEventListener("touchmove", handleTouchMove as EventListener, { passive: false });
-    canvas.addEventListener("touchend", handleTouchEnd as EventListener);
-
+    // Add event listeners with console logs to debug
+    canvas.addEventListener("pointerdown", (e) => {
+      console.log("Pointer down event received");
+      handlePointerDown(e as PointerEvent);
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      console.log("Pointer move event received");
+      handlePointerMove(e as PointerEvent);
+    });
+    window.addEventListener("pointerup", (e) => {
+      console.log("Pointer up event received");
+      handlePointerUp(e as PointerEvent);
+    });
+    canvas.addEventListener("touchstart", (e) => {
+      console.log("Touch start event received");
+      handleTouchStart(e as TouchEvent);
+    }, { passive: false });
+    canvas.addEventListener("touchmove", (e) => {
+      console.log("Touch move event received");
+      handleTouchMove(e as TouchEvent);
+    }, { passive: false });
+    canvas.addEventListener("touchend", (e) => {
+      console.log("Touch end event received");
+      handleTouchEnd(e as TouchEvent);
+    });
 
     // --- Start Animation Loop ---
     lastUpdateTime.current = Date.now();
@@ -364,7 +384,6 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       if (fluidSimRef.current) {
         pointers.current.forEach(p => {
           if (p.moved) {
-            // Ensure splat method exists and call it
             fluidSimRef.current?.splat(p.x, 1.0 - p.y, p.dx, p.dy, p.color); // Invert Y for splat
             p.moved = false; // Reset moved flag after splatting
           }
@@ -372,16 +391,15 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       }
     }, 16); // Approx 60 FPS for splats
 
-
     // --- Cleanup ---
     return () => {
-  console.log("Fluid component cleanup triggered by React.");
+      logger.log("Fluid component cleanup triggered by React.");
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
       clearInterval(splatInterval);
       window.removeEventListener("resize", handleResize);
-      // Ensure canvas exists before removing listeners
+      
       if (canvas) {
         canvas.removeEventListener("pointerdown", handlePointerDown as EventListener);
         canvas.removeEventListener("pointermove", handlePointerMove as EventListener);
@@ -389,17 +407,98 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         canvas.removeEventListener("touchmove", handleTouchMove as EventListener);
         canvas.removeEventListener("touchend", handleTouchEnd as EventListener);
       }
+      
       window.removeEventListener("pointerup", handlePointerUp as EventListener);
+      
       if (fluidSimRef.current) {
         fluidSimRef.current.dispose();
         fluidSimRef.current = null;
       }
-      // Clean up pointers array? Maybe remove inactive pointers
+      
+      // Clean up pointers array
       pointers.current = pointers.current.filter(p => p.id === -1); // Keep only the default placeholder
     };
-  }, [config]); // Removed 'update' from dependencies to prevent unnecessary re-initializations
+  }, []); // Run only once on mount
 
-  return <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: 'block', ...style }} />;
+  // Add a click handler directly on the div to ensure clicks are captured
+  const handleDivClick = (e: React.MouseEvent) => {
+    console.log("Div clicked at", e.clientX, e.clientY);
+    
+    // Always create a splat at the center for now, since mouse coordinates might not map correctly
+    createCenterSplat();
+    
+    // Also try to create a splat at the clicked position
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const canvasBounds = canvas.getBoundingClientRect();
+    const x = (e.clientX - canvasBounds.left) / canvasBounds.width;
+    const y = (e.clientY - canvasBounds.top) / canvasBounds.height;
+    
+    if (fluidSimRef.current) {
+      const color = { r: Math.random(), g: Math.random(), b: Math.random() };
+      fluidSimRef.current.splat(x, 1.0 - y, 0, 0, color);
+      console.log("Manual splat created at", x, y);
+    }
+  };
+
+  // Function to create a splat in the middle of the screen
+  const createCenterSplat = () => {
+    if (!fluidSimRef.current) return;
+    
+    // Create a test splat with a bright red color
+    const color = { r: 1.0, g: 0.0, b: 0.0 };
+    
+    // Create a large splat in the center
+    fluidSimRef.current.splat(0.5, 0.5, 0, 0, color);
+    
+    // Create additional splats around the center
+    fluidSimRef.current.splat(0.45, 0.45, 0, 0, { r: 0.0, g: 1.0, b: 0.0 });
+    fluidSimRef.current.splat(0.55, 0.45, 0, 0, { r: 0.0, g: 0.0, b: 1.0 });
+    fluidSimRef.current.splat(0.45, 0.55, 0, 0, { r: 1.0, g: 1.0, b: 0.0 });
+    fluidSimRef.current.splat(0.55, 0.55, 0, 0, { r: 0.0, g: 1.0, b: 1.0 });
+    
+    // Create a random splat with random velocity
+    const randomColor = { r: Math.random(), g: Math.random(), b: Math.random() };
+    const dx = (Math.random() - 0.5) * 1000;
+    const dy = (Math.random() - 0.5) * 1000;
+    fluidSimRef.current.splat(0.5, 0.5, dx, dy, randomColor);
+    
+    console.log("Created multiple splats with different colors and positions");
+  };
+
+  // No automatic splats - only create splats on user interaction
+
+  return (
+    <div 
+      style={{ position: 'relative', width: '100%', height: '100%' }}
+      onClick={handleDivClick}
+    >
+      <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: 'block', ...style }} />
+      
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          createCenterSplat();
+        }}
+        style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '20px',
+          padding: '10px 20px',
+          background: '#ff5500',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          zIndex: 1000,
+          fontWeight: 'bold'
+        }}
+      >
+        Create Center Splat
+      </button>
+    </div>
+  );
 });
 
 Fluid.displayName = "Fluid"; // Add display name for debugging

@@ -86,7 +86,7 @@ class WebGLContextManager {
       depth: false,
       stencil: false,
       antialias: false,
-      preserveDrawingBuffer: false,
+      preserveDrawingBuffer: true, // Changed to true to prevent clearing between frames
     };
     let gl = canvas.getContext("webgl2", params);
     const isWebGL2 = !!gl;

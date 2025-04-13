@@ -13,17 +13,24 @@ const FluidComponentWithNoSSR = dynamic(
    }
 );
 
+// Dynamically import the DebugUI component with SSR disabled
+const DebugUIWithNoSSR = dynamic(
+  () => import('@/components/fluid/DebugUI'),
+  { ssr: false }
+);
+
 export default function Home() {
   return (
     <main className={styles.main}>
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1 }}>
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1, overflow: 'hidden' }}>
         <FluidComponentWithNoSSR style={{ width: '100%', height: '100%' }} />
       </div>
+      
+      {/* Separate Debug UI component */}
+      <DebugUIWithNoSSR />
+      
       {/* You can add other page content here, ensure it's visible above the fluid background */}
-      <div className={styles.center} style={{ zIndex: 1, position: 'relative', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '20px', borderRadius: '10px' }}>
-        <h1>Fluid Simulation</h1>
-        <p>Interact by clicking/tapping and dragging.</p>
-      </div>
+    
     </main>
   );
 }
