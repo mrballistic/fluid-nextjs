@@ -199,6 +199,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
 
   // --- Initialization and Cleanup ---
   useEffect(() => {
+  console.log("Fluid component mounted.");
     const canvas = canvasRef.current;
     if (!canvas) return;
 
