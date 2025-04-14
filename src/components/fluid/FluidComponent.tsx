@@ -78,13 +78,13 @@ const defaultConfig = {
   SIM_RESOLUTION: 128,
   DYE_RESOLUTION: 1440,
   CAPTURE_RESOLUTION: 512,
-  DENSITY_DISSIPATION: 0.99, // Higher value for slower dissipation
-  VELOCITY_DISSIPATION: 0.99, // Higher value for slower dissipation
+  DENSITY_DISSIPATION: 0.95, // Adjusted for better dissipation
+  VELOCITY_DISSIPATION: 0.95, // Adjusted for better dissipation
   PRESSURE: 0.1, // Using original value
   PRESSURE_ITERATIONS: 20,
   CURL: 3, // Using original value
-  SPLAT_RADIUS: 0.002, // Larger radius for more visible splats
-  SPLAT_FORCE: 6000, // Using original value
+  SPLAT_RADIUS: 0.009, // Medium radius for visible but not overwhelming splats
+  SPLAT_FORCE: 600, // Reduced force for better velocity control
   SHADING: true,
   COLORFUL: true,
   COLOR_UPDATE_SPEED: 10,
