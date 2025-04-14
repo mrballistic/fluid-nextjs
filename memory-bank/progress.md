@@ -6,29 +6,36 @@
 - Shader compilation and program linking
 - Framebuffer creation and management
 - Basic fluid simulation algorithms
-- Event handling infrastructure (events are being captured)
+- Event handling infrastructure with direct canvas event handlers
 - Rendering pipeline for the dye texture
+- Mouse-triggered splats now appear at the correct position
+- Automatic test splats appear at a fixed position (0.25, 0.25)
+- Configuration adjustments for better splat visibility and persistence
 
 ## What's In Progress
-- Debugging the splat rendering issue (splats aren't showing up)
 - Optimizing the fluid simulation performance
 - Improving the visual quality of the simulation
+- Enhancing mobile touch support
+- Adding more interactive features
 
 ## Current Status
 - The application initializes correctly
 - WebGL context and shaders are set up properly
-- Event handlers are receiving events
-- The dye texture is being rendered
-- However, splats are not appearing on the screen when interacting with the canvas
+- Event handlers are receiving events and creating splats at the correct positions
+- The dye texture is being rendered correctly
+- Mouse clicks and movements are properly tracked and logged
+- Splats appear at the exact position where the mouse is clicked
 
 ## Known Issues
-- **Critical**: Splats aren't showing up despite events being captured and processed
-- The event handling might not be correctly passing coordinates to the splat function
-- There might be issues with the display shader or blending settings
-- The splat color and radius settings might need adjustment
+- TypeScript errors related to the use of type assertions (window as any)
+- ESLint warnings about unexpected any types
+- Some redundant event handlers that could be consolidated
+- Excessive console logging that should be cleaned up for production
+- Performance could be improved by reducing unnecessary calculations
 
 ## Technical Debt
-- Need more comprehensive logging throughout the rendering pipeline
-- Should add more error handling for WebGL operations
-- Consider adding unit tests for the fluid simulation components
-- Might need to refactor the event handling code for better reliability
+- Need more comprehensive error handling for WebGL operations
+- Should add unit tests for the fluid simulation components
+- Should add TypeScript interfaces for all custom properties added to DOM elements
+- Need to clean up debugging logs once the implementation is stable
+- Should optimize event handling to reduce redundant code

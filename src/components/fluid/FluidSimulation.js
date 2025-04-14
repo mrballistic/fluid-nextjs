@@ -375,11 +375,19 @@ console.trace("Stack trace for initialization error:");
     }
     this.frameCount = (this.frameCount || 0) + 1;
     
-    // Do NOT clear the canvas between frames to preserve splats
-    // We're using preserveDrawingBuffer: true in the WebGL context options
+    // Clear the canvas with the background color if TRANSPARENT is false
+    if (target == null && !this.config.TRANSPARENT) {
+        this.gl.clearColor(
+            this.config.BACK_COLOR.r,
+            this.config.BACK_COLOR.g,
+            this.config.BACK_COLOR.b,
+            1.0
+        );
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    }
     
     // Render dye to the target (null for canvas)
-    this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA); // Revert to standard alpha blending
+    this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
     this.gl.enable(this.gl.BLEND);
 
     // Set viewport for rendering
@@ -406,11 +414,12 @@ console.trace("Stack trace for initialization error:");
     const textureUnit = this.dye.read.attach(0);
     this.gl.uniform1i(this.displayMaterial.uniforms.uTexture, textureUnit);
 
-    // When rendering to canvas (target == null), do not clear.
-    // The TRANSPARENT config is likely for FBOs, not the final canvas render.
-    this.blit(target); // Rely on default clear = false
+    // Blit to the target
+    this.blit(target);
 
     this.gl.disable(this.gl.BLEND);
+    
+    // Auto-splats removed - only create splats on user interaction
   }
 
   // --- Interaction ---
@@ -441,8 +450,8 @@ console.trace("Stack trace for initialization error:");
     this.gl.uniform2f(this.splatProgram.uniforms.point, x, y); // Normalized coordinates (0-1)
     this.gl.uniform3f(this.splatProgram.uniforms.color, dx, dy, 0.0); // Velocity change
     
-    // Use fixed large radius instead of calculated one
-    this.gl.uniform1f(this.splatProgram.uniforms.radius, 0.1);
+    // Use a smaller radius for better control
+    this.gl.uniform1f(this.splatProgram.uniforms.radius, 0.005);
     
     console.log(`Splat Velocity - Point: (${x.toFixed(3)}, ${y.toFixed(3)}), Radius: 0.1`);
     
@@ -458,8 +467,8 @@ console.trace("Stack trace for initialization error:");
     // Use amplified color
     this.gl.uniform3f(this.splatProgram.uniforms.color, amplifiedColor.r, amplifiedColor.g, amplifiedColor.b);
     
-    // Use fixed large radius for dye as well
-    this.gl.uniform1f(this.splatProgram.uniforms.radius, 0.1);
+    // Use a smaller radius for dye as well
+    this.gl.uniform1f(this.splatProgram.uniforms.radius, 0.005);
     
     console.log(`Splat Dye - Point: (${x.toFixed(3)}, ${y.toFixed(3)}), Color: (${amplifiedColor.r.toFixed(2)}, ${amplifiedColor.g.toFixed(2)}, ${amplifiedColor.b.toFixed(2)}), Radius: 0.1`);
     

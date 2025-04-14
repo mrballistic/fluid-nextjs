@@ -73,24 +73,24 @@ const generateColor = (): { r: number; g: number; b: number } => {
   return HSVtoRGB(Math.random(), 1.0, 1.0);
 };
 
-// Default configuration - using values from the original working code
+// Default configuration - using values from the original working code with adjustments
 const defaultConfig = {
   SIM_RESOLUTION: 128,
-  DYE_RESOLUTION: 1024,
+  DYE_RESOLUTION: 1440,
   CAPTURE_RESOLUTION: 512,
-  DENSITY_DISSIPATION: 3.5, // Using original value
-  VELOCITY_DISSIPATION: 2.0, // Using original value
+  DENSITY_DISSIPATION: 3.5, // Adjusted for better persistence
+  VELOCITY_DISSIPATION: 2, // Adjusted for better persistence
   PRESSURE: 0.1, // Using original value
   PRESSURE_ITERATIONS: 20,
   CURL: 3, // Using original value
-  SPLAT_RADIUS: 0.2, // Using original value
+  SPLAT_RADIUS: 0.0005, // Extremely small radius for tiny splats
   SPLAT_FORCE: 6000, // Using original value
   SHADING: true,
   COLORFUL: true,
   COLOR_UPDATE_SPEED: 10,
   PAUSED: false,
-  BACK_COLOR: { r: 0.5, g: 0, b: 0 }, // Using original value
-  TRANSPARENT: true, // Using original value
+  BACK_COLOR: { r: 0.0, g: 0.0, b: 0.0 }, // Black background
+  TRANSPARENT: false, // Disable transparency to see background
   BLOOM: true, 
   BLOOM_ITERATIONS: 8,
   BLOOM_RESOLUTION: 256,
@@ -135,6 +135,26 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
   const config: FluidConfig = useMemo(() => ({ ...defaultConfig, ...propConfig }), [propConfig]);
 
   // --- Simulation Update ---
+  // Global variable to store mouse position
+  const mousePosition = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+
+  // Function to update the global mouse position
+  const updateMousePosition = useCallback((x: number, y: number) => {
+    mousePosition.current = { x, y };
+    
+    // Also update the global variable for FluidSimulation.js to access
+    if (typeof window !== 'undefined') {
+      try {
+        // Use direct assignment with type assertion
+        (window as any).fluidMouseX = x;
+        (window as any).fluidMouseY = y;
+        console.log(`GLOBAL MOUSE POSITION UPDATED: (${x}, ${y})`);
+      } catch (error) {
+        console.error("Error updating global mouse position:", error);
+      }
+    }
+  }, []);
+
   const update = useCallback(() => {
     const now = Date.now();
     let dt = (now - lastUpdateTime.current) / 1000;
@@ -144,15 +164,45 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
     if (!config.PAUSED && fluidSimRef.current) {
       fluidSimRef.current.step(dt);
       fluidSimRef.current.render(null); // Render to canvas
+      
+      // Update the global mouse position on every frame
+      if (typeof window !== 'undefined') {
+        (window as any).fluidMouseX = mousePosition.current.x;
+        (window as any).fluidMouseY = mousePosition.current.y;
+      }
     }
     animationFrameId.current = requestAnimationFrame(update);
   }, [config.PAUSED]);
 
   // --- Initialization and Cleanup ---
+
   useEffect(() => {
     logger.log("Fluid component mounted.");
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // Create a global variable to store mouse position
+    if (typeof window !== 'undefined') {
+      // Define the properties on the window object if they don't exist
+      if (!window.hasOwnProperty('fluidMouseX')) {
+        Object.defineProperty(window, 'fluidMouseX', {
+          value: window.innerWidth / 2,
+          writable: true,
+          configurable: true
+        });
+      }
+      
+      if (!window.hasOwnProperty('fluidMouseY')) {
+        Object.defineProperty(window, 'fluidMouseY', {
+          value: window.innerHeight / 2,
+          writable: true,
+          configurable: true
+        });
+      }
+      
+      // Log initial mouse position
+      console.log(`Initial mouse position set to: (${window.fluidMouseX}, ${window.fluidMouseY})`);
+    }
 
     // --- Initialize WebGL Context ---
     const params = {
@@ -349,13 +399,74 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       }
     };
 
-    // Add event listeners with console logs to debug
+    // Add event listeners with detailed coordinate logging and store mouse position
     canvas.addEventListener("pointerdown", (e) => {
-      console.log("Pointer down event received");
+      // Get canvas bounds and calculate normalized coordinates
+      const canvasBounds = canvas.getBoundingClientRect();
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+      const canvasX = clientX - canvasBounds.left;
+      const canvasY = clientY - canvasBounds.top;
+      const normalizedX = canvasX / canvasBounds.width;
+      const normalizedY = canvasY / canvasBounds.height;
+      const invertedY = 1.0 - normalizedY; // WebGL uses bottom-left origin
+      
+      // Update global mouse position
+      if (typeof window !== 'undefined') {
+        (window as any).fluidMouseX = canvasX;
+        (window as any).fluidMouseY = canvasY;
+      }
+      
+      console.log("POINTER DOWN COORDINATES:");
+      console.log(`Client: (${clientX}, ${clientY})`);
+      console.log(`Canvas bounds: (${canvasBounds.left}, ${canvasBounds.top}, ${canvasBounds.width}, ${canvasBounds.height})`);
+      console.log(`Canvas: (${canvasX}, ${canvasY})`);
+      console.log(`Normalized: (${normalizedX.toFixed(3)}, ${normalizedY.toFixed(3)})`);
+      console.log(`For WebGL (inverted Y): (${normalizedX.toFixed(3)}, ${invertedY.toFixed(3)})`);
+      console.log(`Updated global mouse position: (${(window as any).fluidMouseX}, ${(window as any).fluidMouseY})`);
+      
+      // Call the regular handler
       handlePointerDown(e as PointerEvent);
+      
+      // Create multiple splats directly at the pointer position
+      if (fluidSimRef.current) {
+        // Create a main splat
+        const mainColor = { r: 1.0, g: 0.0, b: 0.0 }; // Bright red
+        fluidSimRef.current.splat(normalizedX, invertedY, 0, 0, mainColor);
+        
+        // Create additional splats nearby with different colors
+        fluidSimRef.current.splat(normalizedX - 0.01, invertedY - 0.01, 0, 0, { r: 0.0, g: 1.0, b: 0.0 });
+        fluidSimRef.current.splat(normalizedX + 0.01, invertedY - 0.01, 0, 0, { r: 0.0, g: 0.0, b: 1.0 });
+        fluidSimRef.current.splat(normalizedX - 0.01, invertedY + 0.01, 0, 0, { r: 1.0, g: 1.0, b: 0.0 });
+        fluidSimRef.current.splat(normalizedX + 0.01, invertedY + 0.01, 0, 0, { r: 0.0, g: 1.0, b: 1.0 });
+        
+        // Create a splat with random velocity
+        const randomColor = { r: Math.random(), g: Math.random(), b: Math.random() };
+        const dx = (Math.random() - 0.5) * 1000;
+        const dy = (Math.random() - 0.5) * 1000;
+        fluidSimRef.current.splat(normalizedX, invertedY, dx, dy, randomColor);
+        
+        console.log(`Created multiple splats at (${normalizedX.toFixed(3)}, ${invertedY.toFixed(3)})`);
+      }
     });
     canvas.addEventListener("pointermove", (e) => {
       console.log("Pointer move event received");
+      
+      // Update the mouse position on every move, not just when down
+      const canvasBounds = canvas.getBoundingClientRect();
+      const canvasX = e.clientX - canvasBounds.left;
+      const canvasY = e.clientY - canvasBounds.top;
+      
+      // Update global mouse position
+      if (typeof window !== 'undefined') {
+        (window as any).fluidMouseX = canvasX;
+        (window as any).fluidMouseY = canvasY;
+      }
+      
+      console.log(`Updated mouse position: canvas(${canvasX.toFixed(0)}, ${canvasY.toFixed(0)})`);
+      console.log(`Updated global mouse position: (${(window as any).fluidMouseX}, ${(window as any).fluidMouseY})`);
+      
+      // Call the regular handler for pointer movement
       handlePointerMove(e as PointerEvent);
     });
     window.addEventListener("pointerup", (e) => {
@@ -424,47 +535,80 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
   const handleDivClick = (e: React.MouseEvent) => {
     console.log("Div clicked at", e.clientX, e.clientY);
     
-    // Always create a splat at the center for now, since mouse coordinates might not map correctly
-    createCenterSplat();
-    
     // Also try to create a splat at the clicked position
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const canvasBounds = canvas.getBoundingClientRect();
-    const x = (e.clientX - canvasBounds.left) / canvasBounds.width;
-    const y = (e.clientY - canvasBounds.top) / canvasBounds.height;
+    const canvasX = e.clientX - canvasBounds.left;
+    const canvasY = e.clientY - canvasBounds.top;
+    const x = canvasX / canvasBounds.width;
+    const y = canvasY / canvasBounds.height;
     
+    // Update the last clicked position
+    lastClickPosition.current = { x, y: 1.0 - y }; // Store inverted Y for WebGL
+    
+    // Update the canvas mouse position for automatic splats
+    (canvas as any).mouseX = canvasX;
+    (canvas as any).mouseY = canvasY;
+    
+    console.log(`Updated last click position: normalized(${x.toFixed(3)}, ${y.toFixed(3)}), WebGL(${x.toFixed(3)}, ${(1.0-y).toFixed(3)})`);
+    console.log(`Updated canvas mouse position: canvas(${canvasX.toFixed(0)}, ${canvasY.toFixed(0)})`);
+    
+    // Create multiple splats at and around the clicked position
     if (fluidSimRef.current) {
+      // Create a splat at the exact click position
       const color = { r: Math.random(), g: Math.random(), b: Math.random() };
       fluidSimRef.current.splat(x, 1.0 - y, 0, 0, color);
-      console.log("Manual splat created at", x, y);
+      
+      // Create additional splats nearby
+      fluidSimRef.current.splat(x - 0.01, 1.0 - y - 0.01, 0, 0, { r: 1.0, g: 0.0, b: 0.0 });
+      fluidSimRef.current.splat(x + 0.01, 1.0 - y - 0.01, 0, 0, { r: 0.0, g: 1.0, b: 0.0 });
+      fluidSimRef.current.splat(x - 0.01, 1.0 - y + 0.01, 0, 0, { r: 0.0, g: 0.0, b: 1.0 });
+      fluidSimRef.current.splat(x + 0.01, 1.0 - y + 0.01, 0, 0, { r: 1.0, g: 1.0, b: 0.0 });
+      
+      // Create a splat with random velocity
+      const randomColor = { r: Math.random(), g: Math.random(), b: Math.random() };
+      const dx = (Math.random() - 0.5) * 1000;
+      const dy = (Math.random() - 0.5) * 1000;
+      fluidSimRef.current.splat(x, 1.0 - y, dx, dy, randomColor);
+      
+      console.log("Multiple manual splats created at and around", x, y);
     }
   };
 
-  // Function to create a splat in the middle of the screen
+  // Track the last clicked position
+  const lastClickPosition = useRef({ x: 0.5, y: 0.5 });
+
+  // Function to create a splat at the last clicked position
   const createCenterSplat = () => {
     if (!fluidSimRef.current) return;
+    
+    // Get the last clicked position
+    const x = lastClickPosition.current.x;
+    const y = lastClickPosition.current.y;
+    
+    console.log(`Creating splats at last clicked position: (${x.toFixed(3)}, ${y.toFixed(3)})`);
     
     // Create a test splat with a bright red color
     const color = { r: 1.0, g: 0.0, b: 0.0 };
     
-    // Create a large splat in the center
-    fluidSimRef.current.splat(0.5, 0.5, 0, 0, color);
+    // Create a large splat at the last clicked position
+    fluidSimRef.current.splat(x, y, 0, 0, color);
     
-    // Create additional splats around the center
-    fluidSimRef.current.splat(0.45, 0.45, 0, 0, { r: 0.0, g: 1.0, b: 0.0 });
-    fluidSimRef.current.splat(0.55, 0.45, 0, 0, { r: 0.0, g: 0.0, b: 1.0 });
-    fluidSimRef.current.splat(0.45, 0.55, 0, 0, { r: 1.0, g: 1.0, b: 0.0 });
-    fluidSimRef.current.splat(0.55, 0.55, 0, 0, { r: 0.0, g: 1.0, b: 1.0 });
+    // Create additional splats around the last clicked position
+    fluidSimRef.current.splat(x - 0.05, y - 0.05, 0, 0, { r: 0.0, g: 1.0, b: 0.0 });
+    fluidSimRef.current.splat(x + 0.05, y - 0.05, 0, 0, { r: 0.0, g: 0.0, b: 1.0 });
+    fluidSimRef.current.splat(x - 0.05, y + 0.05, 0, 0, { r: 1.0, g: 1.0, b: 0.0 });
+    fluidSimRef.current.splat(x + 0.05, y + 0.05, 0, 0, { r: 0.0, g: 1.0, b: 1.0 });
     
     // Create a random splat with random velocity
     const randomColor = { r: Math.random(), g: Math.random(), b: Math.random() };
     const dx = (Math.random() - 0.5) * 1000;
     const dy = (Math.random() - 0.5) * 1000;
-    fluidSimRef.current.splat(0.5, 0.5, dx, dy, randomColor);
+    fluidSimRef.current.splat(x, y, dx, dy, randomColor);
     
-    console.log("Created multiple splats with different colors and positions");
+    console.log(`Created multiple splats at (${x.toFixed(3)}, ${y.toFixed(3)})`);
   };
 
   // No automatic splats - only create splats on user interaction
@@ -473,30 +617,80 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
     <div 
       style={{ position: 'relative', width: '100%', height: '100%' }}
       onClick={handleDivClick}
+      onMouseMove={(e) => {
+        // Update the global mouse position on every mouse move
+        if (typeof window !== 'undefined') {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          
+          const canvasBounds = canvas.getBoundingClientRect();
+          const canvasX = e.clientX - canvasBounds.left;
+          const canvasY = e.clientY - canvasBounds.top;
+          
+          // Update the mouse position ref
+          mousePosition.current = { x: canvasX, y: canvasY };
+          
+          // Update global variables
+          (window as any).fluidMouseX = canvasX;
+          (window as any).fluidMouseY = canvasY;
+          
+          console.log(`Mouse moved to: (${canvasX.toFixed(0)}, ${canvasY.toFixed(0)})`);
+        }
+      }}
     >
-      <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: 'block', ...style }} />
-      
-      <button
+      <canvas 
+        ref={canvasRef} 
+        style={{ width: "100%", height: "100%", display: 'block', ...style }}
         onClick={(e) => {
-          e.stopPropagation();
-          createCenterSplat();
+          console.log("CANVAS CLICK EVENT FIRED");
+          e.stopPropagation(); // Prevent event from bubbling up
+          
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          
+          const canvasBounds = canvas.getBoundingClientRect();
+          const canvasX = e.clientX - canvasBounds.left;
+          const canvasY = e.clientY - canvasBounds.top;
+          const normalizedX = canvasX / canvasBounds.width;
+          const normalizedY = canvasY / canvasBounds.height;
+          
+          // Create a splat directly at the clicked position
+          if (fluidSimRef.current) {
+            fluidSimRef.current.splat(
+              normalizedX, 
+              1.0 - normalizedY, // Invert Y for WebGL
+              0, 0, 
+              { r: 1.0, g: 0.0, b: 0.0 }
+            );
+            console.log(`Direct splat on canvas click: (${normalizedX.toFixed(3)}, ${(1.0-normalizedY).toFixed(3)})`);
+          }
         }}
-        style={{
-          position: 'absolute',
-          bottom: '20px',
-          left: '20px',
-          padding: '10px 20px',
-          background: '#ff5500',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          zIndex: 1000,
-          fontWeight: 'bold'
+        onMouseDown={(e) => {
+          console.log("CANVAS MOUSE DOWN EVENT FIRED");
+          
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          
+          const canvasBounds = canvas.getBoundingClientRect();
+          const canvasX = e.clientX - canvasBounds.left;
+          const canvasY = e.clientY - canvasBounds.top;
+          const normalizedX = canvasX / canvasBounds.width;
+          const normalizedY = canvasY / canvasBounds.height;
+          
+          // Create a splat directly at the clicked position
+          if (fluidSimRef.current) {
+            fluidSimRef.current.splat(
+              normalizedX, 
+              1.0 - normalizedY, // Invert Y for WebGL
+              0, 0, 
+              { r: 0.0, g: 1.0, b: 0.0 }
+            );
+            console.log(`Direct splat on canvas mousedown: (${normalizedX.toFixed(3)}, ${(1.0-normalizedY).toFixed(3)})`);
+          }
         }}
-      >
-        Create Center Splat
-      </button>
+      />
+      
+      {/* Removed "Create Center Splat" button */}
     </div>
   );
 });
