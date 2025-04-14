@@ -345,6 +345,7 @@ class FluidSimulation {
    * @param {Object} color - Color {r, g, b}
    */
   splat(x, y, dx, dy, color) {
+    // Pass raw dy; SplatManager will handle inversion if needed
     createSplat(
       this.gl,
       this.splatProgram,
@@ -353,7 +354,7 @@ class FluidSimulation {
       x,
       y,
       dx,
-      dy,
+      dy, // Pass raw Y velocity
       color,
       this.config.SPLAT_RADIUS || 0.005,
       this.blit

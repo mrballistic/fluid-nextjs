@@ -44,7 +44,7 @@ export function createSplat(gl, splatProgram, velocity, dye, x, y, dx, dy, color
   gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
   gl.uniform1f(splatProgram.uniforms.aspectRatio, gl.canvas.width / gl.canvas.height);
   gl.uniform2f(splatProgram.uniforms.point, x, y); // Normalized coordinates (0-1)
-  gl.uniform3f(splatProgram.uniforms.color, dx, dy, 0.0); // Velocity change
+  gl.uniform3f(splatProgram.uniforms.color, dx, -dy, 0.0); // Invert Y velocity here
   
   // Use the provided radius, adjusted for aspect ratio
   const adjustedRadius = correctRadius(radius, gl);
@@ -131,7 +131,7 @@ export function createVelocitySplat(gl, splatProgram, velocity, x, y, dx, dy, ra
   gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
   gl.uniform1f(splatProgram.uniforms.aspectRatio, gl.canvas.width / gl.canvas.height);
   gl.uniform2f(splatProgram.uniforms.point, x, y);
-  gl.uniform3f(splatProgram.uniforms.color, dx, dy, 0.0);
+  gl.uniform3f(splatProgram.uniforms.color, dx, -dy, 0.0); // Invert Y velocity here too
   gl.uniform1f(splatProgram.uniforms.radius, correctRadius(radius, gl));
   
   blit(velocity.write);

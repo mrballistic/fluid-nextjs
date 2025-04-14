@@ -141,11 +141,15 @@ export const advectionShaderSource = `
   void main () {
       #ifdef MANUAL_FILTERING
           // Manual bilinear filtering for advection
-          vec2 coord = vUv - dt * bilerp(uVelocity, vUv, texelSize).xy * texelSize; // Backtrace coordinate
+          vec2 velocity = bilerp(uVelocity, vUv, texelSize).xy;
+          // Do NOT invert Y velocity here; let the splat function handle the initial inversion.
+          vec2 coord = vUv - dt * velocity * texelSize; // Backtrace coordinate
           vec4 result = bilerp(uSource, coord, dyeTexelSize); // Sample source texture at backtraced coordinate
       #else
           // Hardware linear filtering (if supported and enabled)
-          vec2 coord = vUv - dt * texture2D(uVelocity, vUv).xy * texelSize; // Backtrace coordinate
+          vec2 velocity = texture2D(uVelocity, vUv).xy;
+          // Do NOT invert Y velocity here; let the splat function handle the initial inversion.
+          vec2 coord = vUv - dt * velocity * texelSize; // Backtrace coordinate
           vec4 result = texture2D(uSource, coord); // Sample source texture
       #endif
       
@@ -180,7 +184,8 @@ export const divergenceShaderSource = `
       if (vB.y < 0.0) { B = -C.y; } // Reflective boundary bottom
 
       // Calculate divergence using central differencing
-      float div = 0.5 * (R - L + T - B);
+      // Invert the Y component to match our Y-axis inversion
+      float div = 0.5 * (R - L - (T - B));
       gl_FragColor = vec4(div, 0.0, 0.0, 1.0); // Store divergence in red channel
   }
 `;
@@ -215,7 +220,8 @@ export const curlShaderSource = `
       
       // Calculate curl with higher-order finite difference
       // This gives a more accurate approximation of the curl
-      float vorticity = ((8.0 * R - 8.0 * L) - (R2 - L2)) / 12.0 - 
+      // Invert the Y component to match our Y-axis inversion
+      float vorticity = ((8.0 * R - 8.0 * L) - (R2 - L2)) / 12.0 + 
                         ((8.0 * T - 8.0 * B) - (T2 - B2)) / 12.0;
       
       // Amplify the curl value to make it more visible
@@ -249,14 +255,16 @@ export const vorticityShaderSource = `
       // Only apply vorticity confinement where curl is significant
       if (abs(C) > 0.01) {
           // Calculate the gradient of the absolute curl magnitude
-          vec2 force = vec2(abs(T) - abs(B), abs(R) - abs(L));
+          // Invert the Y component to match our Y-axis inversion
+          vec2 force = vec2(abs(T) - abs(B), -(abs(R) - abs(L)));
           
           // Normalize the force vector (avoid division by zero)
           float lengthSquared = max(0.0001, dot(force, force));
           force = force * inversesqrt(lengthSquared);
           
           // Cross product with curl direction (positive or negative)
-          force = vec2(force.y, -force.x) * sign(C);
+          // Invert the cross product for Y-axis inversion
+          force = vec2(-force.y, force.x) * sign(C);
           
           // Apply curl confinement force, scaled by the center curl value and strength parameter
           force *= curl * abs(C);
@@ -337,7 +345,8 @@ export const gradientSubtractShaderSource = `
       // Velocity_new = Velocity_old - grad(Pressure) * dt (dt often incorporated or assumed 1)
       // The shader uses vec2(R - L, T - B) which is 2 * grad(Pressure).
       // This might be intentional scaling or assumes a different formulation. Let's stick to it.
-      velocity.xy -= vec2(R - L, T - B); // Subtract scaled gradient
+      // Invert the Y component of the gradient to match our Y-axis inversion
+      velocity.xy -= vec2(R - L, -(T - B)); // Subtract scaled gradient with Y inversion
 
       gl_FragColor = vec4(velocity, 0.0, 1.0); // Output divergence-free velocity
   }

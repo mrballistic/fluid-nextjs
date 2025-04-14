@@ -340,31 +340,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       logger.log(`Pointer down at (${x.toFixed(3)}, ${y.toFixed(3)}), WebGL Y: ${invertedY.toFixed(3)}`);
     };
 
-    const handlePointerMove = (e: PointerEvent) => {
-      if (!canvas) return;
-      const canvasBounds = canvas.getBoundingClientRect();
-      const x = normalizeCoord(e.clientX - canvasBounds.left, canvasBounds.width);
-      const y = normalizeCoord(e.clientY - canvasBounds.top, canvasBounds.height);
-      const pointer = getPointer(e.pointerId ?? 0);
-      if (!pointer.down) return; // Only track if down
-      
-      // Calculate velocity
-      const dx = (x - pointer.x) * (config.SPLAT_FORCE ?? 6000);
-      const dy = (y - pointer.y) * (config.SPLAT_FORCE ?? 6000); // No inversion here - let FluidSimulation handle it
-      
-      // Create a splat directly on move for immediate feedback
-      if (fluidSimRef.current && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
-        fluidSimRef.current.splat(x, 1.0 - y, dx, dy, pointer.color); // Invert Y coordinate for WebGL
-        logger.log(`Direct splat on move: (${x.toFixed(3)}, ${(1.0-y).toFixed(3)}), velocity: (${dx.toFixed(0)}, ${dy.toFixed(0)})`);
-      }
-      
-      // Update pointer for the splat loop
-      pointer.x = x;
-      pointer.y = y;
-      pointer.dx = dx;
-      pointer.dy = dy;
-      pointer.moved = true;
-    };
+    // Removed standalone handlePointerMove function
 
     const handlePointerUp = (e: PointerEvent) => {
       const pointer = getPointer(e.pointerId ?? 0);
@@ -414,6 +390,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         
         // Create a splat directly on move for immediate feedback
         if (fluidSimRef.current && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+          // Use dy directly as it's calculated from non-inverted coordinates
           fluidSimRef.current.splat(x, 1.0 - y, dx, dy, pointer.color);
         }
         
@@ -462,10 +439,10 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         fluidSimRef.current.splat(normalizedX, invertedY, 0, 0, mainColor);
         
         // Create additional splats nearby with different colors
-        fluidSimRef.current.splat(normalizedX - 0.01, invertedY - 0.01, 0, 0, { r: 0.0, g: 1.0, b: 0.0 });
-        fluidSimRef.current.splat(normalizedX + 0.01, invertedY - 0.01, 0, 0, { r: 0.0, g: 0.0, b: 1.0 });
-        fluidSimRef.current.splat(normalizedX - 0.01, invertedY + 0.01, 0, 0, { r: 1.0, g: 1.0, b: 0.0 });
-        fluidSimRef.current.splat(normalizedX + 0.01, invertedY + 0.01, 0, 0, { r: 0.0, g: 1.0, b: 1.0 });
+     //   fluidSimRef.current.splat(normalizedX - 0.01, invertedY - 0.01, 0, 0, { r: 0.0, g: 1.0, b: 0.0 });
+       // fluidSimRef.current.splat(normalizedX + 0.01, invertedY - 0.01, 0, 0, { r: 0.0, g: 0.0, b: 1.0 });
+        //fluidSimRef.current.splat(normalizedX - 0.01, invertedY + 0.01, 0, 0, { r: 1.0, g: 1.0, b: 0.0 });
+        //fluidSimRef.current.splat(normalizedX + 0.01, invertedY + 0.01, 0, 0, { r: 0.0, g: 1.0, b: 1.0 });
       }
     });
     
@@ -516,7 +493,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
           
           // Scale velocity by splat force
           dx *= (config.SPLAT_FORCE ?? 6000) * 0.01;
-          // Do NOT invert Y velocity - we're already using inverted Y coordinates
+          // DO NOT invert Y velocity here - we'll do it in the splat call
           dy *= (config.SPLAT_FORCE ?? 6000) * 0.01;
           
           // Log velocity for debugging
@@ -539,12 +516,12 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       
       // Create a splat on mouse move with velocity
       if (fluidSimRef.current && pointer.moved && pointer.down) {
+        // Use dy directly as it's calculated from inverted coordinates
         fluidSimRef.current.splat(normalizedX, invertedY, dx, dy, pointer.color);
         console.log(`Created velocity splat: pos(${normalizedX.toFixed(2)}, ${invertedY.toFixed(2)}), vel(${dx.toFixed(2)}, ${dy.toFixed(2)})`);
       }
       
-      // Call the regular handler for pointer movement
-      handlePointerMove(e as PointerEvent);
+      // Removed call to handlePointerMove
     });
     window.addEventListener("pointerup", (e) => {
       //console.log("Pointer up event received");
@@ -572,8 +549,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       if (fluidSimRef.current) {
         pointers.current.forEach(p => {
           if (p.moved) {
-            // Invert Y coordinate for WebGL but don't invert velocity
-            // The velocity is already calculated correctly in handlePointerMove
+            // Use p.dy directly as it's stored from inverted coordinates
             fluidSimRef.current?.splat(p.x, 1.0 - p.y, p.dx, p.dy, p.color);
             p.moved = false; // Reset moved flag after splatting
           }
@@ -592,7 +568,6 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       
       if (canvas) {
         canvas.removeEventListener("pointerdown", handlePointerDown as EventListener);
-        canvas.removeEventListener("pointermove", handlePointerMove as EventListener);
         canvas.removeEventListener("touchstart", handleTouchStart as EventListener);
         canvas.removeEventListener("touchmove", handleTouchMove as EventListener);
         canvas.removeEventListener("touchend", handleTouchEnd as EventListener);
