@@ -78,12 +78,12 @@ const defaultConfig = {
   SIM_RESOLUTION: 128,
   DYE_RESOLUTION: 1440,
   CAPTURE_RESOLUTION: 512,
-  DENSITY_DISSIPATION: 0.97, // Adjusted for better dissipation (0.97 = slow fade)
-  VELOCITY_DISSIPATION: 0.98, // Adjusted for better dissipation (0.98 = slow fade)
+  DENSITY_DISSIPATION: 0.99, // Higher value for slower dissipation
+  VELOCITY_DISSIPATION: 0.99, // Higher value for slower dissipation
   PRESSURE: 0.1, // Using original value
   PRESSURE_ITERATIONS: 20,
   CURL: 3, // Using original value
-  SPLAT_RADIUS: 0.00005, // Extremely small radius for tiny splats
+  SPLAT_RADIUS: 0.002, // Larger radius for more visible splats
   SPLAT_FORCE: 6000, // Using original value
   SHADING: true,
   COLORFUL: true,
@@ -137,23 +137,50 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
   // --- Simulation Update ---
   // Global variable to store mouse position
   const mousePosition = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-
-  // Function to update the global mouse position
-  const updateMousePosition = useCallback((x: number, y: number) => {
-    mousePosition.current = { x, y };
-    
-    // Also update the global variable for FluidSimulation.js to access
-    if (typeof window !== 'undefined') {
-      try {
-        // Use direct assignment with type assertion
-        (window as any).fluidMouseX = x;
-        (window as any).fluidMouseY = y;
-        console.log(`GLOBAL MOUSE POSITION UPDATED: (${x}, ${y})`);
-      } catch (error) {
-        console.error("Error updating global mouse position:", error);
+  
+  // Color update timer
+  const colorUpdateTimer = useRef(0);
+  
+  // Generate a random color
+  const generateColor = useCallback(() => {
+    const HSVtoRGB = (h: number, s: number, v: number) => {
+      let r: number = 0, g: number = 0, b: number = 0;
+      const i = Math.floor(h * 6);
+      const f = h * 6 - i;
+      const p = v * (1 - s);
+      const q = v * (1 - f * s);
+      const t = v * (1 - (1 - f) * s);
+      switch (i % 6) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        case 5: r = v; g = p; b = q; break;
       }
-    }
+      return { r, g, b };
+    };
+    
+    // Generate a random color with HSV
+    const c = HSVtoRGB(Math.random(), 1.0, 1.0);
+    // Scale down the brightness
+    c.r *= 0.15;
+    c.g *= 0.15;
+    c.b *= 0.15;
+    return c;
   }, []);
+  
+  // Update colors periodically
+  const updateColors = useCallback((dt: number) => {
+    colorUpdateTimer.current += dt * config.COLOR_UPDATE_SPEED;
+    if (colorUpdateTimer.current >= 1) {
+      colorUpdateTimer.current = colorUpdateTimer.current % 1;
+      // Update pointer colors
+      pointers.current.forEach(p => {
+        p.color = generateColor();
+      });
+    }
+  }, [config.COLOR_UPDATE_SPEED, generateColor]);
 
   const update = useCallback(() => {
     const now = Date.now();
@@ -162,6 +189,9 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
     lastUpdateTime.current = now;
 
     if (!config.PAUSED && fluidSimRef.current) {
+      // Update colors periodically
+      updateColors(dt);
+      
       fluidSimRef.current.step(dt);
       fluidSimRef.current.render(null); // Render to canvas
       
@@ -172,7 +202,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       }
     }
     animationFrameId.current = requestAnimationFrame(update);
-  }, [config.PAUSED]);
+  }, [config.PAUSED, updateColors]);
 
   // --- Initialization and Cleanup ---
 
@@ -417,15 +447,6 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         (window as any).fluidMouseY = canvasY;
       }
       
-      /*
-      console.log("POINTER DOWN COORDINATES:");
-      console.log(`Client: (${clientX}, ${clientY})`);
-      console.log(`Canvas bounds: (${canvasBounds.left}, ${canvasBounds.top}, ${canvasBounds.width}, ${canvasBounds.height})`);
-      console.log(`Canvas: (${canvasX}, ${canvasY})`);
-      console.log(`Normalized: (${normalizedX.toFixed(3)}, ${normalizedY.toFixed(3)})`);
-      console.log(`For WebGL (inverted Y): (${normalizedX.toFixed(3)}, ${invertedY.toFixed(3)})`);
-      console.log(`Updated global mouse position: (${(window as any).fluidMouseX}, ${(window as any).fluidMouseY})`);
-      */
       // Call the regular handler
       handlePointerDown(e as PointerEvent);
       
@@ -440,23 +461,18 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         fluidSimRef.current.splat(normalizedX + 0.01, invertedY - 0.01, 0, 0, { r: 0.0, g: 0.0, b: 1.0 });
         fluidSimRef.current.splat(normalizedX - 0.01, invertedY + 0.01, 0, 0, { r: 1.0, g: 1.0, b: 0.0 });
         fluidSimRef.current.splat(normalizedX + 0.01, invertedY + 0.01, 0, 0, { r: 0.0, g: 1.0, b: 1.0 });
-        
-        // Create a splat with random velocity
-        const randomColor = { r: Math.random(), g: Math.random(), b: Math.random() };
-        const dx = (Math.random() - 0.5) * 1000;
-        const dy = (Math.random() - 0.5) * 1000;
-        fluidSimRef.current.splat(normalizedX, invertedY, dx, dy, randomColor);
-        
-        console.log(`Created multiple splats at (${normalizedX.toFixed(3)}, ${invertedY.toFixed(3)})`);
       }
     });
+    
+    // Handle mouse movement - create fluid effects even when not clicking
     canvas.addEventListener("pointermove", (e) => {
-     // console.log("Pointer move event received");
-      
-      // Update the mouse position on every move, not just when down
+      // Get canvas bounds and calculate normalized coordinates
       const canvasBounds = canvas.getBoundingClientRect();
       const canvasX = e.clientX - canvasBounds.left;
       const canvasY = e.clientY - canvasBounds.top;
+      const normalizedX = canvasX / canvasBounds.width;
+      const normalizedY = canvasY / canvasBounds.height;
+      const invertedY = 1.0 - normalizedY; // WebGL uses bottom-left origin
       
       // Update global mouse position
       if (typeof window !== 'undefined') {
@@ -464,8 +480,32 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         (window as any).fluidMouseY = canvasY;
       }
       
-      //console.log(`Updated mouse position: canvas(${canvasX.toFixed(0)}, ${canvasY.toFixed(0)})`);
-      //console.log(`Updated global mouse position: (${(window as any).fluidMouseX}, ${(window as any).fluidMouseY})`);
+      // Get the pointer
+      const pointer = getPointer(0);
+      
+      // Store previous position before updating
+      const prevX = pointer.x;
+      const prevY = pointer.y;
+      
+      // Update current position
+      pointer.x = normalizedX;
+      pointer.y = invertedY;
+      
+      // Calculate velocity based on movement delta
+      const dx = (normalizedX - prevX) * (config.SPLAT_FORCE ?? 6000);
+      const dy = (invertedY - prevY) * (config.SPLAT_FORCE ?? 6000);
+      
+      // Update pointer for the splat loop
+      pointer.dx = dx;
+      pointer.dy = dy;
+      
+      // Mark as moved if there's enough movement
+      pointer.moved = Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001;
+      
+      // Create a splat on mouse move (even when not clicking)
+      if (fluidSimRef.current && pointer.moved) {
+        fluidSimRef.current.splat(normalizedX, invertedY, dx, dy, pointer.color);
+      }
       
       // Call the regular handler for pointer movement
       handlePointerMove(e as PointerEvent);

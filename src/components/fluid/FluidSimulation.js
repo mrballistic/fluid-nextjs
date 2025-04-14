@@ -455,8 +455,10 @@ console.trace("Stack trace for initialization error:");
     this.gl.uniform2f(this.splatProgram.uniforms.point, x, y); // Normalized coordinates (0-1)
     this.gl.uniform3f(this.splatProgram.uniforms.color, dx, dy, 0.0); // Velocity change
     
-    // Use correctRadius to adjust for aspect ratio
-    this.gl.uniform1f(this.splatProgram.uniforms.radius, correctRadius(0.005, this.gl));
+    // Use the SPLAT_RADIUS from config, adjusted for aspect ratio
+    const splatRadius = this.config.SPLAT_RADIUS || 0.005;
+    console.log(`Using SPLAT_RADIUS: ${splatRadius}`);
+    this.gl.uniform1f(this.splatProgram.uniforms.radius, correctRadius(splatRadius, this.gl));
     
     //console.log(`Splat Velocity - Point: (${x.toFixed(3)}, ${y.toFixed(3)}), Radius: 0.1`);
     
@@ -472,8 +474,8 @@ console.trace("Stack trace for initialization error:");
     // Use amplified color
     this.gl.uniform3f(this.splatProgram.uniforms.color, amplifiedColor.r, amplifiedColor.g, amplifiedColor.b);
     
-    // Use correctRadius for dye as well to ensure circular splats
-    this.gl.uniform1f(this.splatProgram.uniforms.radius, correctRadius(0.005, this.gl));
+    // Use the SPLAT_RADIUS from config for dye as well
+    this.gl.uniform1f(this.splatProgram.uniforms.radius, correctRadius(splatRadius, this.gl));
     
     //console.log(`Splat Dye - Point: (${x.toFixed(3)}, ${y.toFixed(3)}), Color: (${amplifiedColor.r.toFixed(2)}, ${amplifiedColor.g.toFixed(2)}, ${amplifiedColor.b.toFixed(2)}), Radius: 0.1`);
     
