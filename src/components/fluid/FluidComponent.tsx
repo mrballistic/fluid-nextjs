@@ -73,17 +73,17 @@ const generateColor = (): { r: number; g: number; b: number } => {
   return HSVtoRGB(Math.random(), 1.0, 1.0);
 };
 
-// Default configuration - using values from the original working code with adjustments
+  // Default configuration - using values from the original working code with adjustments
 const defaultConfig = {
   SIM_RESOLUTION: 128,
   DYE_RESOLUTION: 1440,
   CAPTURE_RESOLUTION: 512,
-  DENSITY_DISSIPATION: 3.5, // Adjusted for better persistence
-  VELOCITY_DISSIPATION: 2, // Adjusted for better persistence
+  DENSITY_DISSIPATION: 0.97, // Adjusted for better dissipation (0.97 = slow fade)
+  VELOCITY_DISSIPATION: 0.98, // Adjusted for better dissipation (0.98 = slow fade)
   PRESSURE: 0.1, // Using original value
   PRESSURE_ITERATIONS: 20,
   CURL: 3, // Using original value
-  SPLAT_RADIUS: 0.0005, // Extremely small radius for tiny splats
+  SPLAT_RADIUS: 0.00005, // Extremely small radius for tiny splats
   SPLAT_FORCE: 6000, // Using original value
   SHADING: true,
   COLORFUL: true,
@@ -417,6 +417,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         (window as any).fluidMouseY = canvasY;
       }
       
+      /*
       console.log("POINTER DOWN COORDINATES:");
       console.log(`Client: (${clientX}, ${clientY})`);
       console.log(`Canvas bounds: (${canvasBounds.left}, ${canvasBounds.top}, ${canvasBounds.width}, ${canvasBounds.height})`);
@@ -424,7 +425,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       console.log(`Normalized: (${normalizedX.toFixed(3)}, ${normalizedY.toFixed(3)})`);
       console.log(`For WebGL (inverted Y): (${normalizedX.toFixed(3)}, ${invertedY.toFixed(3)})`);
       console.log(`Updated global mouse position: (${(window as any).fluidMouseX}, ${(window as any).fluidMouseY})`);
-      
+      */
       // Call the regular handler
       handlePointerDown(e as PointerEvent);
       
@@ -450,7 +451,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       }
     });
     canvas.addEventListener("pointermove", (e) => {
-      console.log("Pointer move event received");
+     // console.log("Pointer move event received");
       
       // Update the mouse position on every move, not just when down
       const canvasBounds = canvas.getBoundingClientRect();
@@ -463,26 +464,26 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         (window as any).fluidMouseY = canvasY;
       }
       
-      console.log(`Updated mouse position: canvas(${canvasX.toFixed(0)}, ${canvasY.toFixed(0)})`);
-      console.log(`Updated global mouse position: (${(window as any).fluidMouseX}, ${(window as any).fluidMouseY})`);
+      //console.log(`Updated mouse position: canvas(${canvasX.toFixed(0)}, ${canvasY.toFixed(0)})`);
+      //console.log(`Updated global mouse position: (${(window as any).fluidMouseX}, ${(window as any).fluidMouseY})`);
       
       // Call the regular handler for pointer movement
       handlePointerMove(e as PointerEvent);
     });
     window.addEventListener("pointerup", (e) => {
-      console.log("Pointer up event received");
+      //console.log("Pointer up event received");
       handlePointerUp(e as PointerEvent);
     });
     canvas.addEventListener("touchstart", (e) => {
-      console.log("Touch start event received");
+      //console.log("Touch start event received");
       handleTouchStart(e as TouchEvent);
     }, { passive: false });
     canvas.addEventListener("touchmove", (e) => {
-      console.log("Touch move event received");
+      //console.log("Touch move event received");
       handleTouchMove(e as TouchEvent);
     }, { passive: false });
     canvas.addEventListener("touchend", (e) => {
-      console.log("Touch end event received");
+      //console.log("Touch end event received");
       handleTouchEnd(e as TouchEvent);
     });
 
@@ -608,7 +609,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
     const dy = (Math.random() - 0.5) * 1000;
     fluidSimRef.current.splat(x, y, dx, dy, randomColor);
     
-    console.log(`Created multiple splats at (${x.toFixed(3)}, ${y.toFixed(3)})`);
+    //console.log(`Created multiple splats at (${x.toFixed(3)}, ${y.toFixed(3)})`);
   };
 
   // No automatic splats - only create splats on user interaction
@@ -634,7 +635,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
           (window as any).fluidMouseX = canvasX;
           (window as any).fluidMouseY = canvasY;
           
-          console.log(`Mouse moved to: (${canvasX.toFixed(0)}, ${canvasY.toFixed(0)})`);
+         // console.log(`Mouse moved to: (${canvasX.toFixed(0)}, ${canvasY.toFixed(0)})`);
         }
       }}
     >
@@ -642,7 +643,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         ref={canvasRef} 
         style={{ width: "100%", height: "100%", display: 'block', ...style }}
         onClick={(e) => {
-          console.log("CANVAS CLICK EVENT FIRED");
+         // console.log("CANVAS CLICK EVENT FIRED");
           e.stopPropagation(); // Prevent event from bubbling up
           
           const canvas = canvasRef.current;
@@ -666,7 +667,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
           }
         }}
         onMouseDown={(e) => {
-          console.log("CANVAS MOUSE DOWN EVENT FIRED");
+          //console.log("CANVAS MOUSE DOWN EVENT FIRED");
           
           const canvas = canvasRef.current;
           if (!canvas) return;
@@ -685,7 +686,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
               0, 0, 
               { r: 0.0, g: 1.0, b: 0.0 }
             );
-            console.log(`Direct splat on canvas mousedown: (${normalizedX.toFixed(3)}, ${(1.0-normalizedY).toFixed(3)})`);
+            //console.log(`Direct splat on canvas mousedown: (${normalizedX.toFixed(3)}, ${(1.0-normalizedY).toFixed(3)})`);
           }
         }}
       />

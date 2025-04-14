@@ -280,6 +280,9 @@ console.trace("Stack trace for initialization error:");
     this.gl.uniform1i(this.advectionProgram.uniforms.uVelocity, this.velocity.read.attach(0));
     this.gl.uniform1i(this.advectionProgram.uniforms.uSource, this.velocity.read.attach(0)); // Advect velocity itself
     this.gl.uniform1f(this.advectionProgram.uniforms.dt, dt);
+    
+    // Ensure dissipation is applied correctly - log the value to verify
+    //console.log(`Using VELOCITY_DISSIPATION: ${this.config.VELOCITY_DISSIPATION}`);
     this.gl.uniform1f(this.advectionProgram.uniforms.dissipation, this.config.VELOCITY_DISSIPATION);
     // Assuming dyeTexelSize uniform is not strictly needed when advecting velocity itself
     // If the shader requires it, set it:
@@ -293,6 +296,8 @@ console.trace("Stack trace for initialization error:");
     this.gl.uniform1i(this.advectionProgram.uniforms.uVelocity, this.velocity.read.attach(0)); // Use updated velocity
     this.gl.uniform1i(this.advectionProgram.uniforms.uSource, this.dye.read.attach(1));      // Advect dye
     this.gl.uniform2f(this.advectionProgram.uniforms.dyeTexelSize, this.dye.texelSizeX, this.dye.texelSizeY); // Pass dye texel size
+    // Ensure density dissipation is applied correctly - log the value to verify
+    //console.log(`Using DENSITY_DISSIPATION: ${this.config.DENSITY_DISSIPATION}`);
     this.gl.uniform1f(this.advectionProgram.uniforms.dissipation, this.config.DENSITY_DISSIPATION);
     this.blit(this.dye.write);
     this.dye.swap();
@@ -371,7 +376,7 @@ console.trace("Stack trace for initialization error:");
     
     // Only log once every 100 frames to reduce console spam
     if (this.frameCount % 100 === 0) {
-        console.log(`Rendering dye texture - Width: ${this.dye.width}, Height: ${this.dye.height}`);
+       // console.log(`Rendering dye texture - Width: ${this.dye.width}, Height: ${this.dye.height}`);
     }
     this.frameCount = (this.frameCount || 0) + 1;
     
@@ -450,14 +455,14 @@ console.trace("Stack trace for initialization error:");
     this.gl.uniform2f(this.splatProgram.uniforms.point, x, y); // Normalized coordinates (0-1)
     this.gl.uniform3f(this.splatProgram.uniforms.color, dx, dy, 0.0); // Velocity change
     
-    // Use a smaller radius for better control
-    this.gl.uniform1f(this.splatProgram.uniforms.radius, 0.005);
+    // Use correctRadius to adjust for aspect ratio
+    this.gl.uniform1f(this.splatProgram.uniforms.radius, correctRadius(0.005, this.gl));
     
-    console.log(`Splat Velocity - Point: (${x.toFixed(3)}, ${y.toFixed(3)}), Radius: 0.1`);
+    //console.log(`Splat Velocity - Point: (${x.toFixed(3)}, ${y.toFixed(3)}), Radius: 0.1`);
     
     this.blit(this.velocity.write);
     this.velocity.swap();
-    console.log("Velocity splat complete and buffers swapped");
+    //console.log("Velocity splat complete and buffers swapped");
 
     // Splat dye
     this.gl.viewport(0, 0, this.dye.width, this.dye.height);
@@ -467,14 +472,14 @@ console.trace("Stack trace for initialization error:");
     // Use amplified color
     this.gl.uniform3f(this.splatProgram.uniforms.color, amplifiedColor.r, amplifiedColor.g, amplifiedColor.b);
     
-    // Use a smaller radius for dye as well
-    this.gl.uniform1f(this.splatProgram.uniforms.radius, 0.005);
+    // Use correctRadius for dye as well to ensure circular splats
+    this.gl.uniform1f(this.splatProgram.uniforms.radius, correctRadius(0.005, this.gl));
     
-    console.log(`Splat Dye - Point: (${x.toFixed(3)}, ${y.toFixed(3)}), Color: (${amplifiedColor.r.toFixed(2)}, ${amplifiedColor.g.toFixed(2)}, ${amplifiedColor.b.toFixed(2)}), Radius: 0.1`);
+    //console.log(`Splat Dye - Point: (${x.toFixed(3)}, ${y.toFixed(3)}), Color: (${amplifiedColor.r.toFixed(2)}, ${amplifiedColor.g.toFixed(2)}, ${amplifiedColor.b.toFixed(2)}), Radius: 0.1`);
     
     this.blit(this.dye.write); // Draw splat into dye.write
     this.dye.swap(); // Enable swap to make the splat visible
-    console.log("Dye splat complete and buffers swapped");
+    //console.log("Dye splat complete and buffers swapped");
   }
 
   // --- Cleanup ---

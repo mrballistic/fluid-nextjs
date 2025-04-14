@@ -12,7 +12,17 @@ export const getResolution = (resolution, gl) => {
 };
 
 export const correctRadius = (radius, gl) => {
-  // Return a fixed large radius regardless of canvas size
-  // This ensures splats are always visible
-  return 0.1; // Fixed large radius that will be visible on any canvas size
+  if (!gl) return radius;
+  
+  // Adjust radius based on aspect ratio
+  // This ensures splats appear circular regardless of canvas dimensions
+  let aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
+  
+  // If width > height, increase radius proportionally to width
+  // If height > width, no adjustment needed (or adjust based on your preference)
+  if (aspectRatio > 1) {
+    radius *= aspectRatio;
+  }
+  
+  return radius;
 };

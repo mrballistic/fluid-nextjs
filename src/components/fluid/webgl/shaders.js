@@ -117,12 +117,9 @@ export const advectionShaderSource = `
           vec4 result = texture2D(uSource, coord); // Sample source texture
       #endif
       
-      // IMPORTANT: Completely disable dissipation to make splats persist
-      // float decay = 1.0 + dissipation * dt; // Calculate decay factor
-      // gl_FragColor = result / decay; // Apply dissipation
-      
-      // Instead, just output the result directly without any dissipation
-      gl_FragColor = result;
+      // Apply dissipation to make splats fade over time
+      float decay = 1.0 + dissipation * dt; // Calculate decay factor
+      gl_FragColor = result / decay; // Apply dissipation
   }
 `;
 
