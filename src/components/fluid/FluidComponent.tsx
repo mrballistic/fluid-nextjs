@@ -73,18 +73,18 @@ const generateColor = (): { r: number; g: number; b: number } => {
   return HSVtoRGB(Math.random(), 1.0, 1.0);
 };
 
-  // Default configuration - using values from the original working code with adjustments
+  // Default configuration - optimized for better curl and vorticity visualization
 const defaultConfig = {
-  SIM_RESOLUTION: 128,
-  DYE_RESOLUTION: 1440,
+  SIM_RESOLUTION: 256, // Higher resolution for more detailed simulation
+  DYE_RESOLUTION: 1024, // Closer to SIM_RESOLUTION for better visual quality
   CAPTURE_RESOLUTION: 512,
-  DENSITY_DISSIPATION: 0.99, // Higher value for slower dissipation
-  VELOCITY_DISSIPATION: 0.99, // Higher value for slower dissipation
-  PRESSURE: 0.1, // Using original value
+  DENSITY_DISSIPATION: 0.92, // Much faster dissipation to prevent dye buildup
+  VELOCITY_DISSIPATION: 0.94, // Faster dissipation for velocity
+  PRESSURE: 0.1,
   PRESSURE_ITERATIONS: 20,
-  CURL: 3, // Using original value
-  SPLAT_RADIUS: 0.006, // Medium radius for visible but not overwhelming splats
-  SPLAT_FORCE: 600, // Reduced force for better velocity control
+  CURL: 50, // Higher curl value for more pronounced vorticity effects
+  SPLAT_RADIUS: 0.005, // Slightly smaller splats
+  SPLAT_FORCE: 800, // Reduced force for more controlled velocity
   SHADING: true,
   COLORFUL: true,
   COLOR_UPDATE_SPEED: 10,
@@ -204,6 +204,10 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
     animationFrameId.current = requestAnimationFrame(update);
   }, [config.PAUSED, updateColors]);
 
+  // Mouse velocity tracking
+  const lastMousePositions = useRef<{time: number, x: number, y: number}[]>([]);
+  const maxPositionHistory = 5; // Keep track of last 5 positions for smoother velocity calculation
+
   // --- Initialization and Cleanup ---
 
   useEffect(() => {
@@ -320,19 +324,20 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       const canvasBounds = canvas.getBoundingClientRect();
       const x = normalizeCoord(e.clientX - canvasBounds.left, canvasBounds.width);
       const y = normalizeCoord(e.clientY - canvasBounds.top, canvasBounds.height);
+      const invertedY = 1.0 - y; // Invert Y for WebGL coordinates
       const pointer = getPointer(e.pointerId ?? 0);
       pointer.down = true;
       pointer.moved = true; // Set moved to true to trigger an immediate splat
       pointer.x = x;
-      pointer.y = y;
+      pointer.y = y; // Store original DOM Y coordinate
       pointer.color = generateColor(); // Assign new color on press
       
       // Create an immediate splat on pointer down
       if (fluidSimRef.current) {
-        fluidSimRef.current.splat(x, 1.0 - y, 0, 0, pointer.color); // Initial splat with no velocity
+        fluidSimRef.current.splat(x, invertedY, 0, 0, pointer.color); // Use inverted Y for WebGL
       }
       
-      logger.log(`Pointer down at (${x.toFixed(3)}, ${y.toFixed(3)})`);
+      logger.log(`Pointer down at (${x.toFixed(3)}, ${y.toFixed(3)}), WebGL Y: ${invertedY.toFixed(3)}`);
     };
 
     const handlePointerMove = (e: PointerEvent) => {
@@ -345,12 +350,12 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       
       // Calculate velocity
       const dx = (x - pointer.x) * (config.SPLAT_FORCE ?? 6000);
-      const dy = (y - pointer.y) * -(config.SPLAT_FORCE ?? 6000); // Invert Y
+      const dy = (y - pointer.y) * (config.SPLAT_FORCE ?? 6000); // No inversion here - let FluidSimulation handle it
       
       // Create a splat directly on move for immediate feedback
       if (fluidSimRef.current && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
-        fluidSimRef.current.splat(x, 1.0 - y, dx, dy, pointer.color);
-        logger.log(`Direct splat on move: (${x.toFixed(3)}, ${y.toFixed(3)}), velocity: (${dx.toFixed(0)}, ${dy.toFixed(0)})`);
+        fluidSimRef.current.splat(x, 1.0 - y, dx, dy, pointer.color); // Invert Y coordinate for WebGL
+        logger.log(`Direct splat on move: (${x.toFixed(3)}, ${(1.0-y).toFixed(3)}), velocity: (${dx.toFixed(0)}, ${dy.toFixed(0)})`);
       }
       
       // Update pointer for the splat loop
@@ -405,7 +410,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
         
         // Calculate velocity
         const dx = (x - pointer.x) * (config.SPLAT_FORCE ?? 6000);
-        const dy = (y - pointer.y) * -(config.SPLAT_FORCE ?? 6000); // Invert Y
+        const dy = (y - pointer.y) * (config.SPLAT_FORCE ?? 6000); // Don't invert Y
         
         // Create a splat directly on move for immediate feedback
         if (fluidSimRef.current && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
@@ -483,28 +488,59 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       // Get the pointer
       const pointer = getPointer(0);
       
-      // Store previous position before updating
-      const prevX = pointer.x;
-      const prevY = pointer.y;
+      // Add current position to history with timestamp
+      const now = Date.now();
+      lastMousePositions.current.push({time: now, x: normalizedX, y: invertedY});
+      
+      // Keep history limited to maxPositionHistory entries
+      if (lastMousePositions.current.length > maxPositionHistory) {
+        lastMousePositions.current.shift();
+      }
+      
+      // Calculate velocity based on position history for smoother velocity
+      let dx = 0;
+      let dy = 0;
+      
+      if (lastMousePositions.current.length >= 2) {
+        // Get oldest and newest positions
+        const oldest = lastMousePositions.current[0];
+        const newest = lastMousePositions.current[lastMousePositions.current.length - 1];
+        
+        // Calculate time difference in seconds
+        const dt = (newest.time - oldest.time) / 1000;
+        
+        if (dt > 0) {
+          // Calculate velocity in normalized coordinates per second
+          dx = (newest.x - oldest.x) / dt;
+          dy = (newest.y - oldest.y) / dt;
+          
+          // Scale velocity by splat force
+          dx *= (config.SPLAT_FORCE ?? 6000) * 0.01;
+          // Do NOT invert Y velocity - we're already using inverted Y coordinates
+          dy *= (config.SPLAT_FORCE ?? 6000) * 0.01;
+          
+          // Log velocity for debugging
+          if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+            console.log(`Mouse velocity: (${dx.toFixed(2)}, ${dy.toFixed(2)})`);
+          }
+        }
+      }
       
       // Update current position
       pointer.x = normalizedX;
       pointer.y = invertedY;
-      
-      // Calculate velocity based on movement delta
-      const dx = (normalizedX - prevX) * (config.SPLAT_FORCE ?? 6000);
-      const dy = (invertedY - prevY) * (config.SPLAT_FORCE ?? 6000);
       
       // Update pointer for the splat loop
       pointer.dx = dx;
       pointer.dy = dy;
       
       // Mark as moved if there's enough movement
-      pointer.moved = Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001;
+      pointer.moved = Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1;
       
-      // Create a splat on mouse move (even when not clicking)
-      if (fluidSimRef.current && pointer.moved) {
+      // Create a splat on mouse move with velocity
+      if (fluidSimRef.current && pointer.moved && pointer.down) {
         fluidSimRef.current.splat(normalizedX, invertedY, dx, dy, pointer.color);
+        console.log(`Created velocity splat: pos(${normalizedX.toFixed(2)}, ${invertedY.toFixed(2)}), vel(${dx.toFixed(2)}, ${dy.toFixed(2)})`);
       }
       
       // Call the regular handler for pointer movement
@@ -536,7 +572,9 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
       if (fluidSimRef.current) {
         pointers.current.forEach(p => {
           if (p.moved) {
-            fluidSimRef.current?.splat(p.x, 1.0 - p.y, p.dx, p.dy, p.color); // Invert Y for splat
+            // Invert Y coordinate for WebGL but don't invert velocity
+            // The velocity is already calculated correctly in handlePointerMove
+            fluidSimRef.current?.splat(p.x, 1.0 - p.y, p.dx, p.dy, p.color);
             p.moved = false; // Reset moved flag after splatting
           }
         });
@@ -596,25 +634,41 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
     console.log(`Updated last click position: normalized(${x.toFixed(3)}, ${y.toFixed(3)}), WebGL(${x.toFixed(3)}, ${(1.0-y).toFixed(3)})`);
     console.log(`Updated canvas mouse position: canvas(${canvasX.toFixed(0)}, ${canvasY.toFixed(0)})`);
     
-    // Create multiple splats at and around the clicked position
+    // Create multiple splats with opposing velocities to generate curl
     if (fluidSimRef.current) {
-      // Create a splat at the exact click position
-      const color = { r: Math.random(), g: Math.random(), b: Math.random() };
-      fluidSimRef.current.splat(x, 1.0 - y, 0, 0, color);
+      // Create a central splat
+      const centerColor = { r: 1.0, g: 1.0, b: 1.0 };
+      fluidSimRef.current.splat(x, 1.0 - y, 0, 0, centerColor);
       
-      // Create additional splats nearby
-      fluidSimRef.current.splat(x - 0.01, 1.0 - y - 0.01, 0, 0, { r: 1.0, g: 0.0, b: 0.0 });
-      fluidSimRef.current.splat(x + 0.01, 1.0 - y - 0.01, 0, 0, { r: 0.0, g: 1.0, b: 0.0 });
-      fluidSimRef.current.splat(x - 0.01, 1.0 - y + 0.01, 0, 0, { r: 0.0, g: 0.0, b: 1.0 });
-      fluidSimRef.current.splat(x + 0.01, 1.0 - y + 0.01, 0, 0, { r: 1.0, g: 1.0, b: 0.0 });
+      // Create a vortex pattern with 8 splats around the center
+      const radius = 0.03;
+      const force = 5000;
       
-      // Create a splat with random velocity
-      const randomColor = { r: Math.random(), g: Math.random(), b: Math.random() };
-      const dx = (Math.random() - 0.5) * 1000;
-      const dy = (Math.random() - 0.5) * 1000;
-      fluidSimRef.current.splat(x, 1.0 - y, dx, dy, randomColor);
+      // Top splat - downward velocity
+      fluidSimRef.current.splat(x, 1.0 - y + radius, 0, -force, { r: 1.0, g: 0.0, b: 0.0 });
       
-      console.log("Multiple manual splats created at and around", x, y);
+      // Top-right splat - down-left velocity
+      fluidSimRef.current.splat(x + radius * 0.7, 1.0 - y + radius * 0.7, -force, -force, { r: 1.0, g: 0.5, b: 0.0 });
+      
+      // Right splat - leftward velocity
+      fluidSimRef.current.splat(x + radius, 1.0 - y, -force, 0, { r: 0.0, g: 1.0, b: 0.0 });
+      
+      // Bottom-right splat - up-left velocity
+      fluidSimRef.current.splat(x + radius * 0.7, 1.0 - y - radius * 0.7, -force, force, { r: 0.0, g: 1.0, b: 0.5 });
+      
+      // Bottom splat - upward velocity
+      fluidSimRef.current.splat(x, 1.0 - y - radius, 0, force, { r: 0.0, g: 0.0, b: 1.0 });
+      
+      // Bottom-left splat - up-right velocity
+      fluidSimRef.current.splat(x - radius * 0.7, 1.0 - y - radius * 0.7, force, force, { r: 0.5, g: 0.0, b: 1.0 });
+      
+      // Left splat - rightward velocity
+      fluidSimRef.current.splat(x - radius, 1.0 - y, force, 0, { r: 1.0, g: 0.0, b: 1.0 });
+      
+      // Top-left splat - down-right velocity
+      fluidSimRef.current.splat(x - radius * 0.7, 1.0 - y + radius * 0.7, force, -force, { r: 1.0, g: 0.0, b: 0.5 });
+      
+      console.log("Created vortex pattern at", x, y);
     }
   };
 
@@ -652,7 +706,7 @@ const Fluid: React.FC<FluidProps> = memo(({ style, config: propConfig = {} }) =>
     //console.log(`Created multiple splats at (${x.toFixed(3)}, ${y.toFixed(3)})`);
   };
 
-  // No automatic splats - only create splats on user interaction
+  // No automatic splats - removed as requested
 
   return (
     <div 
