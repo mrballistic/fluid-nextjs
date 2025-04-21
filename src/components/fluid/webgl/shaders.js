@@ -344,9 +344,8 @@ export const gradientSubtractShaderSource = `
       // Subtract the pressure gradient from the velocity field to make it divergence-free
       // Velocity_new = Velocity_old - grad(Pressure) * dt (dt often incorporated or assumed 1)
       // The shader uses vec2(R - L, T - B) which is 2 * grad(Pressure).
-      // This might be intentional scaling or assumes a different formulation. Let's stick to it.
-      // Invert the Y component of the gradient to match our Y-axis inversion
-      velocity.xy -= vec2(R - L, -(T - B)); // Subtract scaled gradient with Y inversion
+      // Remove Y inversion: do not negate (T - B)
+      velocity.xy -= vec2(R - L, T - B); // Subtract scaled gradient without Y inversion
 
       gl_FragColor = vec4(velocity, 0.0, 1.0); // Output divergence-free velocity
   }

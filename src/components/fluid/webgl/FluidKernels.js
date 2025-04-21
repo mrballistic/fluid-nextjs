@@ -168,7 +168,7 @@ export function splatStep(gl, splatProgram, target, x, y, dx, dy, color, radius,
   
   // For velocity splat, color is the velocity
   if (color.r === undefined) {
-    gl.uniform3f(splatProgram.uniforms.color, dx, -dy, 0.0); // Invert Y velocity
+    gl.uniform3f(splatProgram.uniforms.color, dx, dy, 0.0); // Remove Y inversion for velocity splat
   } else {
     // For dye splat, color is the actual color
     gl.uniform3f(splatProgram.uniforms.color, color.r, color.g, color.b);
