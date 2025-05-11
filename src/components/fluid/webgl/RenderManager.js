@@ -34,8 +34,8 @@ export function renderFluid(gl, displayMaterial, dye, velocity, curl, target, co
     gl.clear(gl.COLOR_BUFFER_BIT);
   }
   
-  // Set up blending for rendering
-  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  // Set up blending for rendering - Use additive blending for more intense visualization
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_DST_ALPHA);  // Changed to pure additive blending
   gl.enable(gl.BLEND);
 
   // Set viewport for rendering

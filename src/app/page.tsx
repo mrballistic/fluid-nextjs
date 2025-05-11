@@ -1,42 +1,36 @@
-// fluid-nextjs/src/app/page.tsx
-"use client"; // Required for useEffect, useState, etc.
+"use client";
+import React, { useState, useEffect } from 'react';
+import FluidComponentCore from '../components/fluid/FluidComponentCorePart2';
 
-import dynamic from 'next/dynamic';
-import React from 'react';
-import styles from './page.module.css'; // Keep or modify styles as needed
+export default function HomePage() {
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
 
-// Dynamically import the Fluid component with SSR disabled
-const FluidComponentWithNoSSR = dynamic(
-  () => import('@/components/fluid/FluidComponent'), // Use the alias defined in tsconfig.json
-  { ssr: false,
-    loading: () => <p>Loading Fluid Simulation...</p> // Optional loading indicator
-   }
-);
+  useEffect(() => {
+    function handleResize() {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    }
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-// DebugUI component import removed
+  if (windowSize.width === 0 || windowSize.height === 0) {
+    return null; // or a loading indicator
+  }
 
-export default function Home() {
   return (
-    <main className={styles.main}>
-      <div 
-        style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 10, overflow: 'hidden' }}
-        onClick={(e) => {
-          console.log("MAIN DIV CLICKED AT:", e.clientX, e.clientY);
-        }}
-        onMouseMove={(e) => {
-          // Only log every 100 pixels moved to reduce spam
-          if (e.clientX % 100 === 0 || e.clientY % 100 === 0) {
-            console.log("MAIN DIV MOUSE MOVE:", e.clientX, e.clientY);
-          }
-        }}
-      >
-        <FluidComponentWithNoSSR style={{ width: '100%', height: '100%' }} />
+    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+      <FluidComponentCore width={windowSize.width} height={windowSize.height} />
+      <div style={{ 
+        position: 'absolute', 
+        bottom: '20px', 
+        left: '20px', 
+        background: 'rgba(0,0,0,0.7)', 
+        color: 'white', 
+        padding: '10px' 
+      }}>
+        Interact with the fluid simulation by clicking and dragging on the canvas.
       </div>
-      
-      {/* Debug UI component removed */}
-      
-      {/* You can add other page content here, ensure it's visible above the fluid background */}
-    
-    </main>
+    </div>
   );
 }

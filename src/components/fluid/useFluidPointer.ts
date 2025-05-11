@@ -1,34 +1,42 @@
-import React, { useRef, useEffect, useState } from 'react';
-import type { Splat } from './FluidComponentCorePart1';
 import { useFluidPointerHandler } from './FluidPointerHandler';
+import type { Splat } from './FluidComponentCorePart1';
+import type { RefObject } from 'react';
 
-const FluidComponent: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({ width: 512, height: 512 });
-  const pointerState = useRef<{
+interface UseFluidPointerParams {
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  pointerState: React.MutableRefObject<{
     down: boolean;
     lastX: number;
     lastY: number;
     color: [number, number, number];
-  }>({
-    down: false,
-    lastX: 0,
-    lastY: 0,
-    color: [1, 1, 1],
-  });
-  const splatQueue = useRef<Splat[]>([]);
+  }>;
+  splatQueue: React.MutableRefObject<Splat[]>;
+  canvasSize: { width: number; height: number };
+  originalSplatForce: number;
+}
 
+export function useFluidPointer({
+  canvasRef,
+  pointerState,
+  splatQueue,
+  canvasSize,
+  originalSplatForce,
+}: UseFluidPointerParams) {
   const getPointerPos = (e: MouseEvent | PointerEvent | TouchEvent): { x: number; y: number } => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    let clientX = 0, clientY = 0;
-    if ('clientX' in e) {
+    let clientX: number;
+    let clientY: number;
+    if ('clientX' in e && 'clientY' in e) {
       clientX = e.clientX;
       clientY = e.clientY;
     } else if ('touches' in e && e.touches.length > 0) {
       clientX = e.touches[0].clientX;
       clientY = e.touches[0].clientY;
+    } else {
+      clientX = 0;
+      clientY = 0;
     }
     const x = ((clientX - rect.left) / rect.width) * canvas.width;
     const y = (1 - (clientY - rect.top) / rect.height) * canvas.height;
@@ -64,29 +72,11 @@ const FluidComponent: React.FC = () => {
     canvasSize,
     originalRandomColor,
     getPointerPos,
-    ORIGINAL_SPLAT_FORCE: 6000,
+    ORIGINAL_SPLAT_FORCE: originalSplatForce,
   });
 
-  useEffect(() => {
-    function updateCanvasSize() {
-      const dpr = window.devicePixelRatio || 1;
-      const width = Math.round(canvasRef.current?.clientWidth || 512);
-      const height = Math.round(canvasRef.current?.clientHeight || 512);
-      setCanvasSize({ width: width * dpr, height: height * dpr });
-    }
-    updateCanvasSize();
-    window.addEventListener('resize', updateCanvasSize);
-    return () => window.removeEventListener('resize', updateCanvasSize);
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={canvasSize.width}
-      height={canvasSize.height}
-      style={{ width: '100%', height: '100%', display: 'block', background: '#000' }}
-    />
-  );
-};
-
-export default FluidComponent;
+  return {
+    getPointerPos,
+    originalRandomColor,
+  };
+}

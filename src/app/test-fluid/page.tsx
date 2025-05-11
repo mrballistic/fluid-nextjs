@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import FluidComponentCore from '../../components/fluid/FluidComponentCorePart2';
 
-export default function TestPage() {
+export default function TestFluidPage() {
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {

@@ -27,7 +27,8 @@ export const copyShaderSource = `
   uniform sampler2D uTexture;
 
   void main () {
-      gl_FragColor = texture2D(uTexture, vUv);
+      vec4 tex = texture2D(uTexture, vUv);
+      gl_FragColor = tex; // Output full RGBA color
   }
 `;
 
@@ -52,43 +53,16 @@ export const displayShaderSource = `
   varying vec2 vT;
   varying vec2 vB;
   uniform sampler2D uTexture;
-  uniform sampler2D uVelocity;
-  uniform sampler2D uCurl;
   uniform vec2 texelSize;
 
   void main() {
-    // Sample the dye texture (base color)
-    vec4 baseColor = texture2D(uTexture, vUv);
-    
-    // Sample velocity and curl for visualization
-    vec2 velocity = texture2D(uVelocity, vUv).xy;
-    float curl = texture2D(uCurl, vUv).x;
-    
-    // Calculate velocity magnitude
-    float speed = length(velocity);
-    
-    // Reduce the intensity of the dye color to make visualization more visible
-    vec3 dyeColor = baseColor.rgb * 0.3;
-    
-    // Visualize curl with color overlay - make it more prominent
-    vec3 curlColor = vec3(0.0);
-    if (curl > 0.0) {
-      curlColor = vec3(1.0, 0.0, 0.0) * min(curl * 5.0, 1.0); // Red for positive curl
-    } else {
-      curlColor = vec3(0.0, 0.0, 1.0) * min(abs(curl) * 5.0, 1.0); // Blue for negative curl
-    }
-    
-    // Visualize velocity with green overlay - make it more prominent
-    vec3 velocityColor = vec3(0.0, 1.0, 0.0) * min(speed * 0.05, 1.0);
-    
-    // Combine colors with emphasis on visualization rather than dye
-    vec3 finalColor = dyeColor + curlColor + velocityColor;
-    
-    // Ensure we don't exceed 1.0 in any channel
-    finalColor = min(finalColor, vec3(1.0));
-    
-    // Ensure alpha is 1.0 for full opacity
-    gl_FragColor = vec4(finalColor, 1.0);
+    vec4 color = texture2D(uTexture, vUv);
+    #ifdef SHADING
+      // Simple shading: darken based on dye intensity
+      float shade = 0.7 + 0.3 * (color.r + color.g + color.b) / 3.0;
+      color.rgb *= shade;
+    #endif
+    gl_FragColor = vec4(color.rgb, 1.0);
   }
 `;
 
@@ -201,31 +175,21 @@ export const curlShaderSource = `
   uniform sampler2D uVelocity; // Velocity field texture
 
   void main () {
-      // Sample velocity components from neighbors with wider stencil
+      // Sample velocity components from neighbors
       float L = texture2D(uVelocity, vL).y;
       float R = texture2D(uVelocity, vR).y;
       float T = texture2D(uVelocity, vT).x;
       float B = texture2D(uVelocity, vB).x;
       
-      // Sample additional points for a more accurate curl calculation
-      vec2 vL2 = vUv - vec2(2.0 * (vL.x - vUv.x), 0.0);
-      vec2 vR2 = vUv + vec2(2.0 * (vR.x - vUv.x), 0.0);
-      vec2 vT2 = vUv + vec2(0.0, 2.0 * (vT.y - vUv.y));
-      vec2 vB2 = vUv - vec2(0.0, 2.0 * (vUv.y - vB.y));
+      // Calculate basic curl - simplified for stronger effect
+      float basicCurl = (R - L) + (T - B);
       
-      float L2 = texture2D(uVelocity, vL2).y;
-      float R2 = texture2D(uVelocity, vR2).y;
-      float T2 = texture2D(uVelocity, vT2).x;
-      float B2 = texture2D(uVelocity, vB2).x;
+      // Super-amplify the curl
+      float vorticity = basicCurl * 20.0; // Extreme amplification
       
-      // Calculate curl with higher-order finite difference
-      // This gives a more accurate approximation of the curl
-      // Invert the Y component to match our Y-axis inversion
-      float vorticity = ((8.0 * R - 8.0 * L) - (R2 - L2)) / 12.0 + 
-                        ((8.0 * T - 8.0 * B) - (T2 - B2)) / 12.0;
-      
-      // Amplify the curl value to make it more visible
-      vorticity *= 2.0;
+      // Apply a non-linear transformation to enhance even small curls
+      float sign = vorticity < 0.0 ? -1.0 : 1.0;
+      vorticity = sign * sqrt(abs(vorticity));
 
       gl_FragColor = vec4(vorticity, 0.0, 0.0, 1.0); // Store curl in red channel
   }
@@ -252,37 +216,30 @@ export const vorticityShaderSource = `
       float B = texture2D(uCurl, vB).x;
       float C = texture2D(uCurl, vUv).x; // Center curl value
       
-      // Only apply vorticity confinement where curl is significant
-      if (abs(C) > 0.01) {
-          // Calculate the gradient of the absolute curl magnitude
-          // Invert the Y component to match our Y-axis inversion
-          vec2 force = vec2(abs(T) - abs(B), -(abs(R) - abs(L)));
-          
-          // Normalize the force vector (avoid division by zero)
-          float lengthSquared = max(0.0001, dot(force, force));
-          force = force * inversesqrt(lengthSquared);
-          
-          // Cross product with curl direction (positive or negative)
-          // Invert the cross product for Y-axis inversion
-          force = vec2(-force.y, force.x) * sign(C);
-          
-          // Apply curl confinement force, scaled by the center curl value and strength parameter
-          force *= curl * abs(C);
-          
-          // Get current velocity
-          vec2 velocity = texture2D(uVelocity, vUv).xy;
-          
-          // Add the vorticity confinement force to the velocity (scaled by dt)
-          velocity += force * dt;
-          
-          // Clamp velocity to prevent instability
-          velocity = min(max(velocity, -1000.0), 1000.0);
-          
-          gl_FragColor = vec4(velocity, 0.0, 1.0); // Output updated velocity
-      } else {
-          // If curl is too small, just pass through the original velocity
-          gl_FragColor = texture2D(uVelocity, vUv);
-      }
+      // ALWAYS apply vorticity confinement regardless of curl magnitude
+      // Calculate the gradient of the absolute curl magnitude
+      vec2 force = vec2(abs(T) - abs(B), -(abs(R) - abs(L)));
+      
+      // Normalize the force vector (avoid division by zero)
+      float lengthSquared = max(0.0001, dot(force, force));
+      force = force * inversesqrt(lengthSquared);
+      
+      // Cross product with curl direction (positive or negative)
+      force = vec2(-force.y, force.x) * sign(C);
+      
+      // Extremely strong curl confinement force
+      force *= curl * abs(C) * 5.0; // 5x stronger than before
+      
+      // Get current velocity
+      vec2 velocity = texture2D(uVelocity, vUv).xy;
+      
+      // Add the vorticity confinement force to the velocity (scaled by dt)
+      velocity += force * dt;
+      
+      // Clamping with higher limits for more dramatic effects
+      velocity = min(max(velocity, -2000.0), 2000.0);
+      
+      gl_FragColor = vec4(velocity, 0.0, 1.0); // Output updated velocity
   }
 `;
 

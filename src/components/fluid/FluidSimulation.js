@@ -220,10 +220,67 @@ class FluidSimulation {
       console.error("Simulation cannot step, required resources missing.");
       return;
     }
-    
     this.gl.disable(this.gl.BLEND);
-    
-    // 1. Advect Velocity
+
+    // 1. Curl (Vorticity Calculation)
+    this.gl.viewport(0, 0, this.velocity.width, this.velocity.height);
+    FluidKernels.curlStep(
+      this.gl,
+      this.curlProgram,
+      this.velocity,
+      this.curl,
+      this.blit
+    );
+
+    // 2. Vorticity Confinement
+    FluidKernels.vorticityStep(
+      this.gl,
+      this.vorticityProgram,
+      this.velocity,
+      this.curl,
+      this.config.CURL,
+      dt,
+      this.blit
+    );
+
+    // 3. Divergence Calculation
+    FluidKernels.divergenceStep(
+      this.gl,
+      this.divergenceProgram,
+      this.velocity,
+      this.divergence,
+      this.blit
+    );
+
+    // 4. Clear Pressure (always, as in original)
+    FluidKernels.clearPressureStep(
+      this.gl,
+      this.clearProgram,
+      this.pressure,
+      this.config.PRESSURE,
+      this.blit
+    );
+
+    // 5. Pressure Solve (Jacobi Iterations)
+    FluidKernels.pressureStep(
+      this.gl,
+      this.pressureProgram,
+      this.pressure,
+      this.divergence,
+      this.config.PRESSURE_ITERATIONS,
+      this.blit
+    );
+
+    // 6. Gradient Subtraction
+    FluidKernels.gradientSubtractStep(
+      this.gl,
+      this.gradienSubtractProgram,
+      this.velocity,
+      this.pressure,
+      this.blit
+    );
+
+    // 7. Advect Velocity
     this.gl.viewport(0, 0, this.velocity.width, this.velocity.height);
     FluidKernels.advectionStep(
       this.gl,
@@ -235,8 +292,8 @@ class FluidSimulation {
       this.config.VELOCITY_DISSIPATION,
       this.blit
     );
-    
-    // 2. Advect Dye
+
+    // 8. Advect Dye
     this.gl.viewport(0, 0, this.dye.width, this.dye.height);
     FluidKernels.advectionStep(
       this.gl,
@@ -246,66 +303,6 @@ class FluidSimulation {
       this.dye,
       dt,
       this.config.DENSITY_DISSIPATION,
-      this.blit
-    );
-    
-    // 3. Curl (Vorticity Calculation)
-    this.gl.viewport(0, 0, this.velocity.width, this.velocity.height);
-    FluidKernels.curlStep(
-      this.gl,
-      this.curlProgram,
-      this.velocity,
-      this.curl,
-      this.blit
-    );
-    
-    // 4. Vorticity Confinement
-    FluidKernels.vorticityStep(
-      this.gl,
-      this.vorticityProgram,
-      this.velocity,
-      this.curl,
-      this.config.CURL,
-      dt,
-      this.blit
-    );
-    
-    // 5. Divergence Calculation
-    FluidKernels.divergenceStep(
-      this.gl,
-      this.divergenceProgram,
-      this.velocity,
-      this.divergence,
-      this.blit
-    );
-    
-    // 6. Clear Pressure (if needed)
-    if (this.config.PRESSURE_DISSIPATION !== 1.0) {
-      FluidKernels.clearPressureStep(
-        this.gl,
-        this.clearProgram,
-        this.pressure,
-        this.config.PRESSURE_DISSIPATION,
-        this.blit
-      );
-    }
-    
-    // 7. Pressure Solve (Jacobi Iterations)
-    FluidKernels.pressureStep(
-      this.gl,
-      this.pressureProgram,
-      this.pressure,
-      this.divergence,
-      this.config.PRESSURE_ITERATIONS,
-      this.blit
-    );
-    
-    // 8. Gradient Subtraction
-    FluidKernels.gradientSubtractStep(
-      this.gl,
-      this.gradienSubtractProgram,
-      this.velocity,
-      this.pressure,
       this.blit
     );
   }

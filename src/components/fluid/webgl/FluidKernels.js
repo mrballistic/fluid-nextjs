@@ -28,7 +28,7 @@ export function advectionStep(gl, advectionProgram, velocity, source, target, dt
     gl.uniform2f(advectionProgram.uniforms.dyeTexelSize, source.texelSizeX, source.texelSizeY);
   }
   
-  blit(target.write);
+  blit(target); // Pass the full target object, not target.write
   target.swap();
 }
 
@@ -68,7 +68,7 @@ export function vorticityStep(gl, vorticityProgram, velocity, curl, curlStrength
   gl.uniform1i(vorticityProgram.uniforms.uCurl, curl.attach(1));
   gl.uniform1f(vorticityProgram.uniforms.curl, curlStrength);
   gl.uniform1f(vorticityProgram.uniforms.dt, dt);
-  blit(velocity.write);
+  blit(velocity); // Pass the full velocity object, not velocity.write
   velocity.swap();
 }
 
@@ -101,7 +101,7 @@ export function clearPressureStep(gl, clearProgram, pressure, dissipation, blit)
   clearProgram.bind();
   gl.uniform1i(clearProgram.uniforms.uTexture, pressure.read.attach(0));
   gl.uniform1f(clearProgram.uniforms.value, dissipation);
-  blit(pressure.write);
+  blit(pressure); // Pass the full pressure object, not pressure.write
   pressure.swap();
 }
 
@@ -115,15 +115,18 @@ export function clearPressureStep(gl, clearProgram, pressure, dissipation, blit)
  * @param {Function} blit - The blit function
  */
 export function pressureStep(gl, pressureProgram, pressure, divergence, iterations, blit) {
+  // Bind program and set static uniforms
   pressureProgram.bind();
   if (pressureProgram.uniforms.texelSize) {
     gl.uniform2f(pressureProgram.uniforms.texelSize, pressure.texelSizeX, pressure.texelSizeY);
   }
   gl.uniform1i(pressureProgram.uniforms.uDivergence, divergence.attach(0));
-  
+
   for (let i = 0; i < iterations; i++) {
+    // Rebind program before setting uniforms in case blit() changed it
+    pressureProgram.bind();
     gl.uniform1i(pressureProgram.uniforms.uPressure, pressure.read.attach(1));
-    blit(pressure.write);
+    blit(pressure); // Pass the full pressure object, not pressure.write
     pressure.swap();
   }
 }
@@ -143,7 +146,7 @@ export function gradientSubtractStep(gl, gradientProgram, velocity, pressure, bl
   }
   gl.uniform1i(gradientProgram.uniforms.uPressure, pressure.read.attach(0));
   gl.uniform1i(gradientProgram.uniforms.uVelocity, velocity.read.attach(1));
-  blit(velocity.write);
+  blit(velocity); // Pass the full velocity object, not velocity.write
   velocity.swap();
 }
 
@@ -175,6 +178,6 @@ export function splatStep(gl, splatProgram, target, x, y, dx, dy, color, radius,
   }
   
   gl.uniform1f(splatProgram.uniforms.radius, radius);
-  blit(target.write);
+  blit(target); // Pass the full target object, not target.write
   target.swap();
 }

@@ -8,6 +8,11 @@
 - ⚡ Optimizing event handling for better user experience.
 - 🛠️ Resolving turbopack compatibility issues with Next.js 15.3.0.
 - 📝 Enhancing documentation with emojis for better readability and visual appeal.
+- 🧩 Modularized FluidComponentCore into three parts: FluidComponentCorePart1.tsx (types/constants), FluidComponentCorePart2.tsx (main component logic), and FluidPointerHandler.ts (pointer event handling hook).
+- 🧰 Added custom React hook useFluidPointerHandler to manage pointer events separately.
+- 🛠️ Fixed TypeScript errors related to type narrowing in blit function by adding a proper type guard isFBOWithSize.
+- 🔄 Replaced src/components/fluid/FluidComponent.tsx with a version that imports types from FluidComponentCorePart1.tsx and uses the pointer event hook from FluidPointerHandler.ts.
+- 🏗️ Improved modularity and maintainability of the fluid simulation component.
 
 ## Recent Changes
 - 🏗️ Refactored FluidSimulation.js into smaller, more modular components:

@@ -5,22 +5,22 @@
  * These values can be overridden when creating a FluidSimulation instance
  */
 const defaultFluidConfig = {
-  SIM_RESOLUTION: 256, // Higher resolution for more detailed simulation
-  DYE_RESOLUTION: 1024, // Closer to SIM_RESOLUTION for better visual quality
+  SIM_RESOLUTION: 128, // Match standalone
+  DYE_RESOLUTION: 1440, // Match standalone
   CAPTURE_RESOLUTION: 512,
-  DENSITY_DISSIPATION: 0.92, // Much faster dissipation to prevent dye buildup
-  VELOCITY_DISSIPATION: 0.94, // Faster dissipation for velocity
+  DENSITY_DISSIPATION: 3.5, // Match standalone for slower dissipation
+  VELOCITY_DISSIPATION: 2, // Match standalone
   PRESSURE: 0.1,
   PRESSURE_ITERATIONS: 20,
-  CURL: 50, // Higher curl value for more pronounced vorticity effects
-  SPLAT_RADIUS: 0.005, // Slightly smaller splats
-  SPLAT_FORCE: 800, // Reduced force for more controlled velocity
+  CURL: 3, // Match standalone
+  SPLAT_RADIUS: 0.2, // Match standalone
+  SPLAT_FORCE: 6000, // Match standalone
   SHADING: true,
   COLORFUL: true,
   COLOR_UPDATE_SPEED: 10,
   PAUSED: false,
-  BACK_COLOR: { r: 0.0, g: 0.0, b: 0.0 }, // Black background
-  TRANSPARENT: false, // Disable transparency to see background
+  BACK_COLOR: { r: 0.5, g: 0, b: 0 }, // Match standalone
+  TRANSPARENT: true, // Match standalone
   BLOOM: true, 
   BLOOM_ITERATIONS: 8,
   BLOOM_RESOLUTION: 256,
