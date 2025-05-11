@@ -2,7 +2,10 @@ import { useFluidPointerHandler } from './FluidPointerHandler';
 import type { Splat } from './FluidComponentCorePart1';
 import type { RefObject } from 'react';
 
-interface UseFluidPointerParams {
+/**
+ * Parameters for the useFluidPointer hook.
+ */
+export interface UseFluidPointerParams {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   pointerState: React.MutableRefObject<{
     down: boolean;
@@ -15,6 +18,11 @@ interface UseFluidPointerParams {
   originalSplatForce: number;
 }
 
+/**
+ * Custom React hook to handle pointer events and color logic for the fluid simulation.
+ * @param params - Parameters for the hook
+ * @returns {{ getPointerPos: Function, originalRandomColor: Function }}
+ */
 export function useFluidPointer({
   canvasRef,
   pointerState,
@@ -22,6 +30,11 @@ export function useFluidPointer({
   canvasSize,
   originalSplatForce,
 }: UseFluidPointerParams) {
+  /**
+   * Returns the pointer position relative to the canvas, normalized to canvas coordinates.
+   * @param e - The pointer event
+   * @returns {{ x: number, y: number }} The pointer position
+   */
   const getPointerPos = (e: MouseEvent | PointerEvent | TouchEvent): { x: number; y: number } => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -43,6 +56,10 @@ export function useFluidPointer({
     return { x, y };
   };
 
+  /**
+   * Generates a random color in HSV space, converted to RGB, for splats.
+   * @returns {[number, number, number]} The RGB color array
+   */
   function originalRandomColor(): [number, number, number] {
     const h = Math.random();
     const s = 1.0;

@@ -5,7 +5,7 @@
  */
 
 /**
- * Renders the fluid simulation to the screen or a target framebuffer
+ * Renders the fluid simulation to the screen or a target framebuffer.
  * @param {WebGLRenderingContext} gl - The WebGL context
  * @param {Object} displayMaterial - The display material
  * @param {Object} dye - The dye field

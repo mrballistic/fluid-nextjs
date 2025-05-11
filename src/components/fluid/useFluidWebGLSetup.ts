@@ -8,11 +8,17 @@ import { createDoubleFBO, createFBO } from './webgl/FramebufferManager.js';
 import WebGLContextManager from './webgl/WebGLContextManager.js';
 import type { DoubleFBO } from './FluidComponentCorePart1';
 
+/**
+ * Parameters for the useFluidWebGLSetup hook.
+ */
 interface UseFluidWebGLSetupParams {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   canvasSize: { width: number; height: number };
 }
 
+/**
+ * Result of the useFluidWebGLSetup hook.
+ */
 interface UseFluidWebGLSetupResult {
   glCtx: WebGL2RenderingContext | WebGLRenderingContext | null;
   programs: {
@@ -38,6 +44,9 @@ interface UseFluidWebGLSetupResult {
   quadBuffer: WebGLBuffer | null;
 }
 
+/**
+ * Custom hook to set up WebGL for fluid simulation.
+ */
 export function useFluidWebGLSetup({
   canvasRef,
   canvasSize,
@@ -164,7 +173,7 @@ export function useFluidWebGLSetup({
         glCtx,
         glCtx.FRAGMENT_SHADER,
         shaders.advectionShaderSource,
-        supportLinearFiltering ? null : ['MANUAL_FILTERING']
+        supportLinearFiltering ? undefined : ['MANUAL_FILTERING']
       )
     );
     const divergenceProgram = new Program(glCtx, baseVertexShader, compileShader(glCtx, glCtx.FRAGMENT_SHADER, shaders.divergenceShaderSource));
@@ -175,6 +184,11 @@ export function useFluidWebGLSetup({
     const clearProgram = new Program(glCtx, baseVertexShader, compileShader(glCtx, glCtx.FRAGMENT_SHADER, shaders.clearShaderSource));
     const splatProgram = new Program(glCtx, baseVertexShader, compileShader(glCtx, glCtx.FRAGMENT_SHADER, shaders.splatShaderSource));
 
+    /**
+     * Type guard to check if an object is a framebuffer with size.
+     * @param {object} obj - The object to check.
+     * @returns {boolean} - True if the object is a framebuffer with size, false otherwise.
+     */
     function isFBOWithSize(obj: { fbo?: WebGLFramebuffer; width?: number; height?: number }): obj is { fbo: WebGLFramebuffer; width: number; height: number } {
       return (
         obj &&
@@ -188,6 +202,10 @@ export function useFluidWebGLSetup({
       );
     }
 
+    /**
+     * Blit function to copy data to a target framebuffer.
+     * @param {null | DoubleFBO | { fbo: WebGLFramebuffer; width: number; height: number }} targetFBO - The target framebuffer.
+     */
     function blit(targetFBO: null | DoubleFBO | { fbo: WebGLFramebuffer; width: number; height: number }) {
       let framebuffer: WebGLFramebuffer | null = null;
       let w = canvasSize.width;

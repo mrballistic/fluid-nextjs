@@ -32,6 +32,12 @@ export function createBlitFunction(gl) {
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
   // Keep ELEMENT_ARRAY_BUFFER bound as it's needed for drawElements
 
+  /**
+   * Blits (renders) a fullscreen quad to the target framebuffer.
+   * @param {WebGLRenderingContext} gl
+   * @param {Object} program
+   * @param {Object} target
+   */
   // The blit function
   const blit = (target, clear = false) => {
     if (target == null) {

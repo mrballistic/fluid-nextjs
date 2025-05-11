@@ -1,5 +1,9 @@
 // src/components/fluid/webgl/shaders.js
 
+/**
+ * GLSL source for the base vertex shader used in all fluid simulation passes.
+ * @type {string}
+ */
 export const baseVertexShaderSource = `
   precision highp float;
   attribute vec2 aPosition;
@@ -20,6 +24,10 @@ export const baseVertexShaderSource = `
   }
 `;
 
+/**
+ * GLSL source for the copy fragment shader (copies a texture to the target).
+ * @type {string}
+ */
 export const copyShaderSource = `
   precision mediump float;
   precision mediump sampler2D;
@@ -32,6 +40,10 @@ export const copyShaderSource = `
   }
 `;
 
+/**
+ * GLSL source for the clear fragment shader (applies dissipation to a texture).
+ * @type {string}
+ */
 export const clearShaderSource = `
   precision mediump float;
   precision mediump sampler2D;
@@ -44,6 +56,10 @@ export const clearShaderSource = `
   }
 `;
 
+/**
+ * GLSL source for the display fragment shader (renders dye to the screen, with optional shading).
+ * @type {string}
+ */
 export const displayShaderSource = `
   precision highp float;
   precision highp sampler2D;
@@ -66,6 +82,10 @@ export const displayShaderSource = `
   }
 `;
 
+/**
+ * GLSL source for the splat fragment shader (applies a color or velocity splat).
+ * @type {string}
+ */
 export const splatShaderSource = `
   precision highp float;
   precision highp sampler2D;
@@ -85,6 +105,10 @@ export const splatShaderSource = `
   }
 `;
 
+/**
+ * GLSL source for the advection fragment shader (advects dye or velocity through the velocity field).
+ * @type {string}
+ */
 export const advectionShaderSource = `
   precision highp float;
   precision highp sampler2D;
@@ -133,6 +157,10 @@ export const advectionShaderSource = `
   }
 `;
 
+/**
+ * GLSL source for the divergence fragment shader (computes velocity divergence).
+ * @type {string}
+ */
 export const divergenceShaderSource = `
   precision mediump float;
   precision mediump sampler2D;
@@ -164,6 +192,10 @@ export const divergenceShaderSource = `
   }
 `;
 
+/**
+ * GLSL source for the curl fragment shader (computes vorticity/curl of the velocity field).
+ * @type {string}
+ */
 export const curlShaderSource = `
   precision mediump float;
   precision mediump sampler2D;
@@ -195,6 +227,10 @@ export const curlShaderSource = `
   }
 `;
 
+/**
+ * GLSL source for the vorticity fragment shader (applies vorticity confinement force).
+ * @type {string}
+ */
 export const vorticityShaderSource = `
   precision highp float;
   precision highp sampler2D;
@@ -243,6 +279,10 @@ export const vorticityShaderSource = `
   }
 `;
 
+/**
+ * GLSL source for the pressure fragment shader (Jacobi iteration for pressure solve).
+ * @type {string}
+ */
 export const pressureShaderSource = `
   precision mediump float;
   precision mediump sampler2D;
@@ -274,6 +314,10 @@ export const pressureShaderSource = `
   }
 `;
 
+/**
+ * GLSL source for the gradient subtraction fragment shader (makes velocity field divergence-free).
+ * @type {string}
+ */
 export const gradientSubtractShaderSource = `
   precision mediump float;
   precision mediump sampler2D;

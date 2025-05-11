@@ -2,6 +2,9 @@ import { useEffect } from 'react';
 import type { MutableRefObject } from 'react';
 import type { Splat } from './FluidComponentCorePart1';
 
+/**
+ * Interface for pointer handler parameters.
+ */
 interface PointerHandlerParams {
   canvasRef: MutableRefObject<HTMLCanvasElement | null>;
   pointerState: MutableRefObject<{
@@ -17,6 +20,11 @@ interface PointerHandlerParams {
   ORIGINAL_SPLAT_FORCE: number;
 }
 
+/**
+ * Custom hook to handle fluid pointer events.
+ * 
+ * @param {PointerHandlerParams} params - The parameters for the pointer handler.
+ */
 export function useFluidPointerHandler({
   canvasRef,
   pointerState,
@@ -30,6 +38,11 @@ export function useFluidPointerHandler({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    /**
+     * Handles native pointer move events.
+     * 
+     * @param {PointerEvent} e - The pointer event.
+     */
     const handleNativePointerMove = (e: PointerEvent) => {
       console.debug('Pointer move event:', e);
       if (e.pointerType === 'mouse' || e.pointerType === 'pen' || e.pointerType === 'touch') {
@@ -56,6 +69,12 @@ export function useFluidPointerHandler({
         }
       }
     };
+
+    /**
+     * Handles native pointer down events.
+     * 
+     * @param {PointerEvent} e - The pointer event.
+     */
     const handleNativePointerDown = (e: PointerEvent) => {
       console.debug('Pointer down event:', e);
       if (e.pointerType === 'mouse' || e.pointerType === 'pen' || e.pointerType === 'touch') {
@@ -74,10 +93,15 @@ export function useFluidPointerHandler({
         splatQueue.current.push({ x: nx, y: ny, dx: 0, dy: 0, color: clickColor, type: 'dye' });
       }
     };
+
+    /**
+     * Handles native pointer up events.
+     */
     const handleNativePointerUp = () => {
       console.debug('Pointer up event');
       pointerState.current.down = false;
     };
+
     canvas.addEventListener('pointermove', handleNativePointerMove);
     canvas.addEventListener('pointerdown', handleNativePointerDown);
     canvas.addEventListener('pointerup', handleNativePointerUp);

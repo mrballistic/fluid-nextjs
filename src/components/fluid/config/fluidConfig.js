@@ -4,6 +4,24 @@
  * Default configuration for fluid simulation
  * These values can be overridden when creating a FluidSimulation instance
  */
+/**
+ * Default configuration for the fluid simulation.
+ * @type {Object}
+ * @property {number} SIM_RESOLUTION
+ * @property {number} DYE_RESOLUTION
+ * @property {number} CAPTURE_RESOLUTION
+ * @property {number} DENSITY_DISSIPATION
+ * @property {number} VELOCITY_DISSIPATION
+ * @property {number} PRESSURE
+ * @property {number} PRESSURE_ITERATIONS
+ * @property {number} CURL
+ * @property {number} SPLAT_RADIUS
+ * @property {number} SPLAT_FORCE
+ * @property {boolean} SHADING
+ * @property {number} COLOR_UPDATE_SPEED
+ * @property {Array<number>} BACK_COLOR
+ * @property {boolean} TRANSPARENT
+ */
 const defaultFluidConfig = {
   SIM_RESOLUTION: 128, // Match standalone
   DYE_RESOLUTION: 1440, // Match standalone

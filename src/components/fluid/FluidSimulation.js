@@ -11,8 +11,9 @@ import { createSplat } from './webgl/SplatManager.js';
 import defaultFluidConfig from './config/fluidConfig.js';
 
 /**
- * Main fluid simulation class
- * Orchestrates the simulation steps and manages resources
+ * Main fluid simulation class.
+ * Orchestrates the simulation steps and manages resources.
+ * @class
  */
 class FluidSimulation {
   /**

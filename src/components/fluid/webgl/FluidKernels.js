@@ -5,15 +5,15 @@
  */
 
 /**
- * Advection step - moves quantities through the velocity field
- * @param {WebGLRenderingContext} gl - The WebGL context
- * @param {Object} advectionProgram - The advection shader program
- * @param {Object} velocity - The velocity field
- * @param {Object} source - The source field to advect (can be velocity itself or dye)
- * @param {Object} target - The target field to write to
- * @param {number} dt - The time step
- * @param {number} dissipation - The dissipation rate
- * @param {Function} blit - The blit function
+ * Advection step - moves quantities through the velocity field.
+ * @param {WebGLRenderingContext} gl
+ * @param {Object} advectionProgram
+ * @param {Object} velocity
+ * @param {Object} source
+ * @param {Object} target
+ * @param {number} dt
+ * @param {number} dissipation
+ * @param {Function} blit
  */
 export function advectionStep(gl, advectionProgram, velocity, source, target, dt, dissipation, blit) {
   advectionProgram.bind();
@@ -33,12 +33,12 @@ export function advectionStep(gl, advectionProgram, velocity, source, target, dt
 }
 
 /**
- * Curl step - calculates the curl (vorticity) of the velocity field
- * @param {WebGLRenderingContext} gl - The WebGL context
- * @param {Object} curlProgram - The curl shader program
- * @param {Object} velocity - The velocity field
- * @param {Object} curl - The curl field to write to
- * @param {Function} blit - The blit function
+ * Curl step - calculates the curl (vorticity) of the velocity field.
+ * @param {WebGLRenderingContext} gl
+ * @param {Object} curlProgram
+ * @param {Object} velocity
+ * @param {Object} curl
+ * @param {Function} blit
  */
 export function curlStep(gl, curlProgram, velocity, curl, blit) {
   curlProgram.bind();
@@ -50,14 +50,14 @@ export function curlStep(gl, curlProgram, velocity, curl, blit) {
 }
 
 /**
- * Vorticity step - applies vorticity confinement to enhance small-scale details
- * @param {WebGLRenderingContext} gl - The WebGL context
- * @param {Object} vorticityProgram - The vorticity shader program
- * @param {Object} velocity - The velocity field
- * @param {Object} curl - The curl field
- * @param {number} curlStrength - The curl strength parameter
- * @param {number} dt - The time step
- * @param {Function} blit - The blit function
+ * Vorticity step - applies vorticity confinement to enhance small-scale details.
+ * @param {WebGLRenderingContext} gl
+ * @param {Object} vorticityProgram
+ * @param {Object} velocity
+ * @param {Object} curl
+ * @param {number} curlStrength
+ * @param {number} dt
+ * @param {Function} blit
  */
 export function vorticityStep(gl, vorticityProgram, velocity, curl, curlStrength, dt, blit) {
   vorticityProgram.bind();
@@ -73,12 +73,12 @@ export function vorticityStep(gl, vorticityProgram, velocity, curl, curlStrength
 }
 
 /**
- * Divergence step - calculates the divergence of the velocity field
- * @param {WebGLRenderingContext} gl - The WebGL context
- * @param {Object} divergenceProgram - The divergence shader program
- * @param {Object} velocity - The velocity field
- * @param {Object} divergence - The divergence field to write to
- * @param {Function} blit - The blit function
+ * Divergence step - calculates the divergence of the velocity field.
+ * @param {WebGLRenderingContext} gl
+ * @param {Object} divergenceProgram
+ * @param {Object} velocity
+ * @param {Object} divergence
+ * @param {Function} blit
  */
 export function divergenceStep(gl, divergenceProgram, velocity, divergence, blit) {
   divergenceProgram.bind();
@@ -90,12 +90,12 @@ export function divergenceStep(gl, divergenceProgram, velocity, divergence, blit
 }
 
 /**
- * Clear pressure step - clears the pressure field with dissipation
- * @param {WebGLRenderingContext} gl - The WebGL context
- * @param {Object} clearProgram - The clear shader program
- * @param {Object} pressure - The pressure field
- * @param {number} dissipation - The pressure dissipation rate
- * @param {Function} blit - The blit function
+ * Clear pressure step - clears the pressure field with dissipation.
+ * @param {WebGLRenderingContext} gl
+ * @param {Object} clearProgram
+ * @param {Object} pressure
+ * @param {number} dissipation
+ * @param {Function} blit
  */
 export function clearPressureStep(gl, clearProgram, pressure, dissipation, blit) {
   clearProgram.bind();
@@ -106,13 +106,13 @@ export function clearPressureStep(gl, clearProgram, pressure, dissipation, blit)
 }
 
 /**
- * Pressure step - solves the pressure equation using Jacobi iteration
- * @param {WebGLRenderingContext} gl - The WebGL context
- * @param {Object} pressureProgram - The pressure shader program
- * @param {Object} pressure - The pressure field
- * @param {Object} divergence - The divergence field
- * @param {number} iterations - The number of iterations
- * @param {Function} blit - The blit function
+ * Pressure step - solves the pressure equation using Jacobi iteration.
+ * @param {WebGLRenderingContext} gl
+ * @param {Object} pressureProgram
+ * @param {Object} pressure
+ * @param {Object} divergence
+ * @param {number} iterations
+ * @param {Function} blit
  */
 export function pressureStep(gl, pressureProgram, pressure, divergence, iterations, blit) {
   // Bind program and set static uniforms
@@ -132,12 +132,12 @@ export function pressureStep(gl, pressureProgram, pressure, divergence, iteratio
 }
 
 /**
- * Gradient subtraction step - subtracts the pressure gradient from the velocity field
- * @param {WebGLRenderingContext} gl - The WebGL context
- * @param {Object} gradientProgram - The gradient subtraction shader program
- * @param {Object} velocity - The velocity field
- * @param {Object} pressure - The pressure field
- * @param {Function} blit - The blit function
+ * Gradient subtraction step - subtracts the pressure gradient from the velocity field.
+ * @param {WebGLRenderingContext} gl
+ * @param {Object} gradientProgram
+ * @param {Object} velocity
+ * @param {Object} pressure
+ * @param {Function} blit
  */
 export function gradientSubtractStep(gl, gradientProgram, velocity, pressure, blit) {
   gradientProgram.bind();
@@ -151,17 +151,17 @@ export function gradientSubtractStep(gl, gradientProgram, velocity, pressure, bl
 }
 
 /**
- * Splat step - adds a splat to the velocity and dye fields
- * @param {WebGLRenderingContext} gl - The WebGL context
- * @param {Object} splatProgram - The splat shader program
- * @param {Object} target - The target field (velocity or dye)
- * @param {number} x - The x position of the splat
- * @param {number} y - The y position of the splat
- * @param {number} dx - The x velocity of the splat
- * @param {number} dy - The y velocity of the splat
- * @param {Object} color - The color of the splat
- * @param {number} radius - The radius of the splat
- * @param {Function} blit - The blit function
+ * Splat step - adds a splat to the velocity and dye fields.
+ * @param {WebGLRenderingContext} gl
+ * @param {Object} splatProgram
+ * @param {Object} target
+ * @param {number} x
+ * @param {number} y
+ * @param {number} dx
+ * @param {number} dy
+ * @param {Object} color
+ * @param {number} radius
+ * @param {Function} blit
  */
 export function splatStep(gl, splatProgram, target, x, y, dx, dy, color, radius, blit) {
   splatProgram.bind();

@@ -2,15 +2,25 @@ import React, { useRef, useEffect, useState } from 'react';
 import type { Splat } from './FluidComponentCorePart1';
 import { useFluidPointerHandler } from './FluidPointerHandler';
 
+/**
+ * Pointer state for the fluid simulation.
+ */
+interface PointerState {
+  down: boolean;
+  lastX: number;
+  lastY: number;
+  color: [number, number, number];
+}
+
+/**
+ * FluidComponent renders the interactive fluid simulation canvas and manages pointer state.
+ * Handles pointer events and canvas resizing.
+ * @component
+ */
 const FluidComponent: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({ width: 512, height: 512 });
-  const pointerState = useRef<{
-    down: boolean;
-    lastX: number;
-    lastY: number;
-    color: [number, number, number];
-  }>({
+  const pointerState = useRef<PointerState>({
     down: false,
     lastX: 0,
     lastY: 0,
@@ -18,6 +28,11 @@ const FluidComponent: React.FC = () => {
   });
   const splatQueue = useRef<Splat[]>([]);
 
+  /**
+   * Returns the pointer position relative to the canvas, normalized to canvas coordinates.
+   * @param {MouseEvent | PointerEvent | TouchEvent} e - The pointer event
+   * @returns {{ x: number, y: number }} The pointer position
+   */
   const getPointerPos = (e: MouseEvent | PointerEvent | TouchEvent): { x: number; y: number } => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -35,6 +50,10 @@ const FluidComponent: React.FC = () => {
     return { x, y };
   };
 
+  /**
+   * Generates a random color in HSV space, converted to RGB, for splats.
+   * @returns {[number, number, number]} The RGB color array
+   */
   function originalRandomColor(): [number, number, number] {
     const h = Math.random();
     const s = 1.0;
@@ -68,6 +87,9 @@ const FluidComponent: React.FC = () => {
   });
 
   useEffect(() => {
+    /**
+     * Updates the canvas size to match the device pixel ratio and window size.
+     */
     function updateCanvasSize() {
       const dpr = window.devicePixelRatio || 1;
       const width = Math.round(canvasRef.current?.clientWidth || 512);

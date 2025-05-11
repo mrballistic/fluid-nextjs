@@ -16,7 +16,12 @@ const addKeywords = (source, keywords) => {
 };
 
 /**
- * Compiles a shader of the given type with optional keywords.
+ * Compiles a WebGL shader from source.
+ * @param {WebGLRenderingContext} gl
+ * @param {number} type - Shader type (gl.VERTEX_SHADER or gl.FRAGMENT_SHADER)
+ * @param {string} source - GLSL source code
+ * @param {string[]} [keywords] - An array of keywords to define.
+ * @returns {WebGLShader} The compiled shader
  */
 const compileShader = (gl, type, source, keywords) => {
   source = addKeywords(source, keywords);
@@ -38,6 +43,10 @@ const compileShader = (gl, type, source, keywords) => {
 
 /**
  * Creates a WebGL program by linking vertex and fragment shaders.
+ * @param {WebGLRenderingContext} gl
+ * @param {WebGLShader} vertexShader
+ * @param {WebGLShader} fragmentShader
+ * @returns {WebGLProgram} The linked WebGL program
  */
 const createProgram = (gl, vertexShader, fragmentShader) => {
   if (!vertexShader || !fragmentShader) {
@@ -63,6 +72,10 @@ const createProgram = (gl, vertexShader, fragmentShader) => {
   return program;
 };
 
+/**
+ * WebGL Program wrapper for managing shader programs and uniforms.
+ * @class
+ */
 class Program {
   constructor(gl, vertexShader, fragmentShader) {
     this.gl = gl;
@@ -99,6 +112,10 @@ class Program {
 }
 
 // Export classes and helper functions
+/**
+ * WebGL Material class for managing shaders and programs with keywords.
+ * @class
+ */
 class Material {
   constructor(gl, vertexShader, fragmentShaderSource) {
     this.gl = gl;

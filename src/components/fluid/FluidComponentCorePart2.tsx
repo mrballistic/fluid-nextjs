@@ -8,7 +8,21 @@ import {
   ORIGINAL_SPLAT_RADIUS
 } from './FluidComponentCorePart1';
 
-const FluidComponentCore: React.FC<{ width: number; height: number }> = ({ width, height }) => {
+/**
+ * Props for the FluidComponentCore component.
+ */
+interface FluidComponentCoreProps {
+  width: number;
+  height: number;
+}
+
+/**
+ * FluidComponentCore is a React functional component that sets up and runs a fluid simulation.
+ * 
+ * @param width - The width of the canvas.
+ * @param height - The height of the canvas.
+ */
+const FluidComponentCore: React.FC<FluidComponentCoreProps> = ({ width, height }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerState = useRef({
     down: false,

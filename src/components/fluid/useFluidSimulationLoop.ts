@@ -1,10 +1,34 @@
 import { useEffect } from 'react';
 import * as FluidKernels from './webgl/FluidKernels.js';
-import defaultFluidConfig from './config/fluidConfig.js';
+import defaultFluidConfigImport from './config/fluidConfig.js';
 import type { Splat, DoubleFBO } from './FluidComponentCorePart1';
 import { Program } from './webgl/ShaderManager.js';
 
-interface UseFluidSimulationLoopParams {
+interface FluidConfig {
+  SIM_RESOLUTION: number;
+  DYE_RESOLUTION: number;
+  CAPTURE_RESOLUTION: number;
+  DENSITY_DISSIPATION: number;
+  VELOCITY_DISSIPATION: number;
+  PRESSURE: number;
+  PRESSURE_ITERATIONS: number;
+  CURL: number;
+  SPLAT_RADIUS: number;
+  SPLAT_FORCE: number;
+  SHADING: boolean;
+  COLORFUL?: boolean;
+  COLOR_UPDATE_SPEED: number;
+  PAUSED?: boolean;
+  BACK_COLOR: { r: number; g: number; b: number };
+  TRANSPARENT: boolean;
+}
+
+const defaultFluidConfig = defaultFluidConfigImport as unknown as FluidConfig;
+
+/**
+ * Parameters for the useFluidSimulationLoop hook.
+ */
+export interface UseFluidSimulationLoopParams {
   glCtx: WebGL2RenderingContext | WebGLRenderingContext | null;
   programs: {
     copyProgram: Program;
@@ -32,6 +56,9 @@ interface UseFluidSimulationLoopParams {
   originalSplatRadius: number;
 }
 
+/**
+ * Custom React hook to run the fluid simulation loop and handle rendering.
+ */
 export function useFluidSimulationLoop({
   glCtx,
   programs,
@@ -42,9 +69,12 @@ export function useFluidSimulationLoop({
   canvasSize,
   splatQueue,
   originalSplatRadius,
-}: UseFluidSimulationLoopParams) {
+}: UseFluidSimulationLoopParams): void {
   useEffect(() => {
     if (!glCtx || !programs || !fbos) return;
+
+    let running = true;
+    let lastTime = performance.now();
 
     const {
       copyProgram,
@@ -66,6 +96,11 @@ export function useFluidSimulationLoop({
       curl,
     } = fbos;
 
+    /**
+     * Checks if the given object is a framebuffer object with size properties.
+     * @param {Object} obj - Object to check
+     * @returns {boolean} True if the object is a framebuffer object with size properties, false otherwise
+     */
     function isFBOWithSize(obj: { fbo?: WebGLFramebuffer; width?: number; height?: number }): obj is { fbo: WebGLFramebuffer; width: number; height: number } {
       return (
         obj &&
@@ -79,6 +114,10 @@ export function useFluidSimulationLoop({
       );
     }
 
+    /**
+     * Runs a single simulation step, updating all fluid fields.
+     * @param {number} dt - Time step in seconds
+     */
     function simulationStep(dt: number) {
       if (!glCtx) return;
       FluidKernels.curlStep(glCtx, curlProgram, velocity, curl, blit);
@@ -115,8 +154,9 @@ export function useFluidSimulationLoop({
       }
     }
 
-    let running = true;
-    let lastTime = performance.now();
+    /**
+     * Main render loop for the fluid simulation.
+     */
     function renderLoop() {
       if (!glCtx) return;
       const now = performance.now();
