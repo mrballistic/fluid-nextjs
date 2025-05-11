@@ -174,5 +174,5 @@ export function useFluidSimulationLoop({
     return () => {
       running = false;
     };
-  }, [glCtx, programs, fbos, blit, aPosition, quadBuffer, canvasSize.width, canvasSize.height, splatQueue]);
+  }, [glCtx, programs, fbos, blit, aPosition, quadBuffer, canvasSize.width, canvasSize.height, splatQueue, originalSplatRadius]);
 }

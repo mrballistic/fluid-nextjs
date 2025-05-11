@@ -11,8 +11,9 @@ This project integrates a GPU-accelerated fluid simulation into a Next.js applic
 
 ## 📂 Project Structure
 - `src/components/fluid`: Contains the main fluid simulation components
-  - `FluidComponent.tsx`: React component integrating the fluid simulation
-  - `FluidSimulation.js`: Main orchestration class for fluid simulation
+  - `FluidComponentCorePart1.tsx`: Core fluid simulation React component part 1
+  - `FluidComponentCorePart2.tsx`: Core fluid simulation React component part 2 (WebGL rendering and simulation)
+  - `FluidComponent.tsx`: Higher-level React component integrating fluid simulation
   - `config/`: Configuration settings
     - `fluidConfig.js`: Default configuration for the fluid simulation
   - `webgl/`: WebGL utilities and shader management
@@ -60,6 +61,8 @@ fluid-nextjs/
 │   ├── app/
 │   └── components/
 │       └── fluid/
+│           ├── FluidComponentCorePart1.tsx
+│           ├── FluidComponentCorePart2.tsx
 │           ├── FluidComponent.tsx
 │           ├── FluidSimulation.js
 │           ├── config/
@@ -103,3 +106,16 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 ## 🙏 Acknowledgements
 - Inspired by various WebGL fluid simulation techniques
 - Built with Next.js, React, and WebGL
+
+## 🌐 GitHub Pages Deployment
+The app is deployed on GitHub Pages at:
+
+[https://mrballistic.github.io/fluid-nextjs/](https://mrballistic.github.io/fluid-nextjs/)
+
+To build and deploy:
+
+1. Configure `next.config.ts` with the correct `basePath` and `assetPrefix` for your repo.
+2. Run `npm run build` and `npm run export` to generate static files.
+3. Deploy the `out` directory to the `gh-pages` branch of your repository.
+
+You can automate deployment using GitHub Actions or other CI/CD tools.
